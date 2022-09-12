@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+
+    <!--  DEFINE CONSOLE OUT PARAMETERS -->
+  <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
+    <encoder>
+      <pattern>%d{HH:mm:ss} [%thread] %-5level - %msg%n</pattern>
+    </encoder>
+  </appender>
+
+
+    <appender name="SIFT" class="ch.qos.logback.classic.sift.SiftingAppender">
+        <discriminator>
+            <key>log.name</key>
+            <defaultValue>unknown</defaultValue>
+        </discriminator>
+        <sift>
+        	<!-- FILE -->
+            <appender name="FILE-${userid}" class="ch.qos.logback.core.FileAppender">
+                <file>./logs/${log.name}.log</file>
+                <layout class="ch.qos.logback.classic.PatternLayout">
+                    <pattern>%d{HH:mm:ss} [%thread] %-5level - %msg%n</pattern>
+                </layout>
+            </appender>
+        </sift>
+    </appender>
+
+    <root level="debug">
+        <appender-ref ref="SIFT" />
+        <appender-ref ref="STDOUT" />
+    </root>
+
+
+</configuration>
