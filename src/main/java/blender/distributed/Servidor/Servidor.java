@@ -1,5 +1,6 @@
 package blender.distributed.Servidor;
 
+import blender.distributed.Cliente.Imagen;
 import blender.distributed.Servidor.helpers.ServerFtp;
 import com.google.gson.Gson;
 import org.slf4j.Logger;
@@ -19,7 +20,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
 
-public class Servidor {
+public class Servidor implements IClient {
 	//General settings
 	Logger log = LoggerFactory.getLogger(Servidor.class);
 	String serverDirectory = System.getProperty("user.dir")+"\\src\\main\\resources\\Servidor\\";
@@ -84,14 +85,14 @@ public class Servidor {
 		registrySv = LocateRegistry.createRegistry(this.rmiPortSv);
 
 		remoteFtpMan = (IFTPManager) UnicastRemoteObject.exportObject(new FTPManager(this.ftpPort, this.ftp),0);
-		//remoteClient = (IClient) UnicastRemoteObject.exportObject(this,0);
+		remoteClient = (IClient) UnicastRemoteObject.exportObject(this,0);
 		remoteWorker = (IWorkerAction) UnicastRemoteObject.exportObject(new WorkerAction(this.listaWorkers, this.listaTrabajos, this.workersLastPing),0);
 
 		registrySv.rebind("Acciones", remoteFtpMan);
-		//registryCli.rebind("client", remoteClient);
+		registryCli.rebind("client", remoteClient);
 		registrySv.rebind("server", remoteWorker);
 		log.info("Servidor RMI{");
-		//log.info("\t Client:"+registryCli.toString());
+		log.info("\t Client:"+registryCli.toString());
 		log.info("\t Server:"+registrySv.toString()+"\n\t\t\t}");
 	}
 	
@@ -120,6 +121,17 @@ public class Servidor {
 		//FTP RELATED
 		this.ftp = new ServerFtp(this.ftpPort, this.myFTPDirectory);
 		log.info("FTP Configurado correctamente. Listo para usar en puerto:"+this.ftpPort+". Compartiendo carpeta: "+this.myFTPDirectory);
+	}
+
+	@Override
+	public String helloFromClient(String clientIp, String myHostName) throws RemoteException {
+		log.info("Se conecto el cliente " + clientIp + " - " + myHostName);
+		return "OK";
+	}
+
+	@Override
+	public Imagen renderRequest(Mensaje msg) throws RemoteException {
+		return null;
 	}
 
 
