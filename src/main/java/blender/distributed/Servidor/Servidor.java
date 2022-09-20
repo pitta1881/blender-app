@@ -1,7 +1,7 @@
 package blender.distributed.Servidor;
 
-import blender.distributed.Cliente.Imagen;
 import blender.distributed.Servidor.helpers.ServerFtp;
+import blender.distributed.Worker.Worker;
 import com.google.gson.Gson;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -20,7 +20,9 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
 
-public class Servidor implements IClient {
+import static java.lang.Thread.sleep;
+
+public class Servidor {
 	//General settings
 	Logger log = LoggerFactory.getLogger(Servidor.class);
 	String serverDirectory = System.getProperty("user.dir")+"\\src\\main\\resources\\Servidor\\";
@@ -28,6 +30,7 @@ public class Servidor implements IClient {
 	String myFTPDirectory;
 	private String myIp;
 	private String backupIp;
+	final Integer inicialWorkers = 3;
 	private ArrayList<String> listaWorkers = new ArrayList<String>();
 	private ArrayList<String> listaTrabajos = new ArrayList<String>();
 	Map<String, LocalTime> workersLastPing = new HashMap<String,LocalTime>();
@@ -37,9 +40,10 @@ public class Servidor implements IClient {
 	private int rmiPortSv;
 	Registry registryCli;
 	Registry registrySv;
-	private IClient remoteClient;
+	private IClientAction remoteCliente;
 	private IFTPManager remoteFtpMan;
 	private IWorkerAction remoteWorker;
+
 
 	//Ftp Related
 	private int ftpPort;
@@ -53,6 +57,11 @@ public class Servidor implements IClient {
 		initialConfig();
 		try {
 			runRMIServer();
+			for (int i = 0; i < this.inicialWorkers; i++) {
+				Worker workerProcess = new Worker();
+				new Thread(workerProcess).start();
+				sleep(2000);	//esto xq sino se vuelve loco el ftp connection
+			}
 			while(true) {
 				try {
 					//Checkeo si se cayo un nodo
@@ -65,7 +74,7 @@ public class Servidor implements IClient {
 						}
 					}
 					try {
-						Thread.sleep(5000);
+						sleep(5000);
 					} catch (InterruptedException e) {
 						e.printStackTrace();
 					}
@@ -75,6 +84,8 @@ public class Servidor implements IClient {
 			}
 		} catch (RemoteException e) {
 			e.printStackTrace();
+		} catch (InterruptedException e) {
+			throw new RuntimeException(e);
 		}
 	}
 
@@ -85,11 +96,11 @@ public class Servidor implements IClient {
 		registrySv = LocateRegistry.createRegistry(this.rmiPortSv);
 
 		remoteFtpMan = (IFTPManager) UnicastRemoteObject.exportObject(new FTPManager(this.ftpPort, this.ftp),0);
-		remoteClient = (IClient) UnicastRemoteObject.exportObject(this,0);
+		remoteCliente = (IClientAction) UnicastRemoteObject.exportObject(new ClienteAction(),0);
 		remoteWorker = (IWorkerAction) UnicastRemoteObject.exportObject(new WorkerAction(this.listaWorkers, this.listaTrabajos, this.workersLastPing),0);
 
 		registrySv.rebind("Acciones", remoteFtpMan);
-		registryCli.rebind("client", remoteClient);
+		registryCli.rebind("client", remoteCliente);
 		registrySv.rebind("server", remoteWorker);
 		log.info("Servidor RMI{");
 		log.info("\t Client:"+registryCli.toString());
@@ -122,18 +133,6 @@ public class Servidor implements IClient {
 		this.ftp = new ServerFtp(this.ftpPort, this.myFTPDirectory);
 		log.info("FTP Configurado correctamente. Listo para usar en puerto:"+this.ftpPort+". Compartiendo carpeta: "+this.myFTPDirectory);
 	}
-
-	@Override
-	public String helloFromClient(String clientIp, String myHostName) throws RemoteException {
-		log.info("Se conecto el cliente " + clientIp + " - " + myHostName);
-		return "OK";
-	}
-
-	@Override
-	public Imagen renderRequest(Mensaje msg) throws RemoteException {
-		return null;
-	}
-
 
 	public static void main(String[] args) {
 		new Servidor();

@@ -99,4 +99,12 @@ public class Mensaje implements Serializable{
 	public void setIpCliente(String ipCliente) {
 		this.ipCliente = ipCliente;
 	}
+
+	public Integer getStartFrame() {
+		return startFrame;
+	}
+	public Integer getEndFrame() {
+		return endFrame;
+	}
+
 }

@@ -30,7 +30,7 @@ import java.util.Map;
  *  #Por linea de comandos realizar un renderizado y subirlo a la cola
  *
  */
-public class Worker {
+public class Worker implements Runnable {
 	//General
 	Logger log = LoggerFactory.getLogger(Worker.class);
 	String workerDirectory = System.getProperty("user.dir")+"\\src\\main\\resources\\Worker\\";
@@ -53,7 +53,7 @@ public class Worker {
 	private boolean onBackupSv;
 
 
-	public Worker() {
+	public void startWorker() {
 		//while(true) {
 			log.info("<-- [STEP 1] - LEYENDO ARCHIVO DE CONFIGURACION \t\t\t-->");
 			readConfigFile();
@@ -66,7 +66,7 @@ public class Worker {
 			//getQueueConn();
 			log.info("<-- [STEP 6] - REVISANDO ARCHIVOS NECESARIOS\t-->");
 			if(checkNeededFiles()) {
-				log.info("<-- [STEP 6] - ESPERANDO TRABAJOS\t\t\t-->");
+				log.info("<-- [STEP 7] - ESPERANDO TRABAJOS\t\t\t-->");
 				//getWork();
 			}else {
 				log.debug("Error inesperado!");
@@ -195,59 +195,23 @@ public class Worker {
 	 * en caso de no tenerlas las descarga por ftp.
 	 */
 	private boolean checkNeededFiles() {
-		File fRoot = new File(this.workerDirectory);
-		if (fRoot.isDirectory()) {
-			log.info(fRoot.getAbsolutePath()+" ---->Directorio");
-			File fApp = new File(this.workerDirectory+"\\Blender-app\\");
-			if (fApp.isDirectory()) {
-				log.info(fApp.getAbsolutePath()+" ---->Directorio");
-				try {
-					long size = DirectoryTools.getFolderSize(fApp);
-					log.info("Obteniendo tamanio de: "+fApp.getAbsolutePath()+" MB:"+(size/1024));
-					if(size < 30000000) {
-						downloadBlenderApp(fApp.getAbsolutePath());
-					}else {
-						log.info("Blender ----> LISTO");
-					}
-					return true;
-				}catch (Exception e) {
-					log.info("Error: "+fApp.getAbsolutePath()+" No es un directorio.");
-					if(fApp.mkdir()) {
-						downloadBlenderApp(fApp.getAbsolutePath());
-						return true;
-					}else {
-						log.error("Hubo un error inesperado al intentar crear la carpeta: "+fApp.getAbsolutePath());
-						return false;
-					}
-				}
-			}else{
-				log.info("Error: "+fApp.getAbsolutePath()+" No es un directorio.");
-				if(fApp.mkdir()) {
-					downloadBlenderApp(fApp.getAbsolutePath());
-					return true;
-				}else {
-					log.error("Hubo un error inesperado al intentar crear la carpeta: "+fApp.getAbsolutePath());
-					return false;
-				}
-			}
-		}else{
-			log.info("Error: "+fRoot.getAbsolutePath()+" No es un directorio.");
-			if(fRoot.mkdir()) {
-				File fApp = new File(this.workerDirectory+"/Blender-app/");
-				if(fApp.mkdir()) {
-					downloadBlenderApp(fApp.getAbsolutePath());
-					return true;
-				}else {
-					log.error("Hubo un error inesperado al intentar crear la carpeta: "+fApp.getAbsolutePath());
-					return false;
-				}
-			}else{
-				log.error("Hubo un error inesperado al intentar crear la carpeta: "+fRoot.getAbsolutePath());
-				return false;
-			}
+		Long singleWorkerWorkspace = System.currentTimeMillis();
+		String pathRoot = this.workerDirectory;
+		String pathApp = this.workerDirectory+"\\Blender-app\\";
+		String pathWorkerApp = this.workerDirectory+"\\Blender-app\\"+"worker"+singleWorkerWorkspace;
+		File fWApp = new File(pathWorkerApp);
+		DirectoryTools.checkOrCreateFolder(pathRoot);
+		DirectoryTools.checkOrCreateFolder(pathApp);
+		DirectoryTools.checkOrCreateFolder(pathWorkerApp);
+		long size = DirectoryTools.getFolderSize(fWApp);
+		log.info("Obteniendo tamanio de: "+fWApp.getAbsolutePath()+" MB:"+(size/1024));
+		if(size < 30000000) {
+			downloadBlenderApp(fWApp.getAbsolutePath());
+		}else {
+			log.info("Blender ----> LISTO");
 		}
+		return true;
 	}
-
 
 	@SuppressWarnings("static-access")
 	private void downloadBlenderApp(String myAppDir) {
@@ -313,6 +277,12 @@ public class Worker {
 	}
 
 	public static void main(String[] args) {
-		new Worker();
+		Worker wk = new Worker();
+		wk.startWorker();
+	}
+
+	@Override
+	public void run() {
+		startWorker();
 	}
 }

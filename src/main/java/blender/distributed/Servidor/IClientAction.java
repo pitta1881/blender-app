@@ -6,9 +6,9 @@ import java.rmi.Remote;
 import java.rmi.RemoteException;
 
 
-public interface IClient extends Remote{
+public interface IClientAction extends Remote{
 
-	public String helloFromClient(String clientIp, String myHostName) throws RemoteException;
+	public String helloServer(String clientIp, String myHostName) throws RemoteException;
 	public Imagen renderRequest(Mensaje msg) throws RemoteException;
 
 }

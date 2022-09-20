@@ -1,6 +1,6 @@
 package blender.distributed.Cliente;
 
-import blender.distributed.Servidor.IClient;
+import blender.distributed.Servidor.IClientAction;
 import blender.distributed.Servidor.Mensaje;
 import com.google.gson.Gson;
 import org.slf4j.Logger;
@@ -22,7 +22,7 @@ import java.util.Map;
 public class Cliente{
 	private final int MAX_ATTEMPS = 3;
 	static Logger log = LoggerFactory.getLogger(Cliente.class);
-	IClient stub;
+	IClientAction stub;
 	File file;
 	byte[] fileContent;
 	private String serverIp;
@@ -41,7 +41,7 @@ public class Cliente{
 		Registry clienteRMI;
 		try {
 			clienteRMI = LocateRegistry.getRegistry(serverIp, serverPort);
-			this.stub = (IClient) clienteRMI.lookup("client");
+			this.stub = (IClientAction) clienteRMI.lookup("client");
 			String myIp = "";
 			String myHostName = "";
 			try {
@@ -50,7 +50,7 @@ public class Cliente{
 			} catch (UnknownHostException e1) {
 				e1.printStackTrace();
 			}
-			String servResp = this.stub.helloFromClient(myIp, myHostName);
+			String servResp = this.stub.helloServer(myIp, myHostName);
 			if(!servResp.isEmpty()) {
 				log.info("Conectado al Servidor: " + serverIp + ":" + serverPort);
 			}

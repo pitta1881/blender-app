@@ -27,7 +27,7 @@ public class WorkerAction implements IWorkerAction{
 		synchronized (listaTrabajos) {
 			if(!listaWorkers.contains(worker)) {
 				this.listaWorkers.add(worker);
-				log.debug("Registrando nuevo worker: "+worker);
+				log.info("Registrando nuevo worker: "+worker);
 			}
 		}
 		synchronized (workersLastPing) {
