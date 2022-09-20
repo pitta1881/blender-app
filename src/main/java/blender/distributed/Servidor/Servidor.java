@@ -1,7 +1,6 @@
 package blender.distributed.Servidor;
 
 import blender.distributed.Servidor.helpers.ServerFtp;
-import blender.distributed.Worker.Worker;
 import com.google.gson.Gson;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -57,11 +56,12 @@ public class Servidor {
 		initialConfig();
 		try {
 			runRMIServer();
-			for (int i = 0; i < this.inicialWorkers; i++) {
+			/*
+			for (int i = 0; i < 1; i++) {
 				Worker workerProcess = new Worker();
 				new Thread(workerProcess).start();
 				sleep(2000);	//esto xq sino se vuelve loco el ftp connection
-			}
+			}*/
 			while(true) {
 				try {
 					//Checkeo si se cayo un nodo
@@ -84,8 +84,6 @@ public class Servidor {
 			}
 		} catch (RemoteException e) {
 			e.printStackTrace();
-		} catch (InterruptedException e) {
-			throw new RuntimeException(e);
 		}
 	}
 
