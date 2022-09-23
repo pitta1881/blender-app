@@ -2,6 +2,7 @@ package blender.distributed.Cliente;
 
 import blender.distributed.Servidor.IClientAction;
 import blender.distributed.Servidor.Mensaje;
+import blender.distributed.Worker.Tools.DirectoryTools;
 import com.google.gson.Gson;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -30,6 +31,7 @@ public class Cliente{
 	private Integer serverPort;
 	private boolean onBackupSv = false;
 	String clienteDirectory = System.getProperty("user.dir")+"\\src\\main\\resources\\Cliente\\";
+	String myRenderedImages;
 
 
 	public Cliente() {
@@ -112,8 +114,12 @@ public class Cliente{
 			Mensaje m = new Mensaje(this.fileContent, file.getName(), startFrame, endFrame, myIp);
 			try {
 				Imagen returned = this.stub.renderRequest(m);
-				//returned.persistImg("./resultado.png");
-				//return new File("./resultado.png").getAbsolutePath();
+				if(returned.getByteImage().length < 100) {
+					return "Ha ocurrido un error. Porfavor intentelo denuevo mas tarde";
+				}
+				DirectoryTools.checkOrCreateFolder(this.myRenderedImages);
+				returned.persistImg(this.myRenderedImages + "\\resultado.png");
+				return new File(this.myRenderedImages +"\\resultado.png").getAbsolutePath();
 			} catch (RemoteException e) {
 				e.printStackTrace();
 			}
@@ -135,9 +141,12 @@ public class Cliente{
 		try {
 			config = gson.fromJson(new FileReader(this.clienteDirectory+"config.json"), Map.class);
 			Map server = (Map) config.get("server");
+			Map paths = (Map) config.get("paths");
 			this.serverIp = server.get("ip").toString();
 			this.serverIpBak = server.get("ipBak").toString();
 			this.serverPort = Integer.valueOf(server.get("port").toString());
+			this.myRenderedImages = this.clienteDirectory + paths.get("renderedImages");
+
 		} catch (IOException e) {
 			log.info("Error Archivo Config!");
 		} 

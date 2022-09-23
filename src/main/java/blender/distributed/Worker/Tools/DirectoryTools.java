@@ -30,6 +30,7 @@ public class DirectoryTools {
 		if(!fFolder.isDirectory()){
 			log.info("Error: "+fFolder.getAbsolutePath()+" No es un directorio.");
 			fFolder.mkdir();
+			log.info("Success: "+fFolder.getAbsolutePath()+" Directorio creado.");
 		} else {
 			log.info(fFolder.getAbsolutePath()+" ---->Directorio");
 		}

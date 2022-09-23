@@ -31,7 +31,7 @@ public class Servidor {
 	private String backupIp;
 	final Integer inicialWorkers = 3;
 	private ArrayList<String> listaWorkers = new ArrayList<String>();
-	private ArrayList<String> listaTrabajos = new ArrayList<String>();
+	private ArrayList<Mensaje> listaTrabajos = new ArrayList<Mensaje>();
 	Map<String, LocalTime> workersLastPing = new HashMap<String,LocalTime>();
 
 	//RMI
@@ -94,7 +94,7 @@ public class Servidor {
 		registrySv = LocateRegistry.createRegistry(this.rmiPortSv);
 
 		remoteFtpMan = (IFTPManager) UnicastRemoteObject.exportObject(new FTPManager(this.ftpPort, this.ftp),0);
-		remoteCliente = (IClientAction) UnicastRemoteObject.exportObject(new ClienteAction(),0);
+		remoteCliente = (IClientAction) UnicastRemoteObject.exportObject(new ClienteAction(this.listaTrabajos),0);
 		remoteWorker = (IWorkerAction) UnicastRemoteObject.exportObject(new WorkerAction(this.listaWorkers, this.listaTrabajos, this.workersLastPing),0);
 
 		registrySv.rebind("Acciones", remoteFtpMan);

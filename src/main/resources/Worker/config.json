@@ -13,7 +13,7 @@
   			  },
   "paths": {
   			  "myBlendDir":"/BlendFiles/",
-  			  "myBlenderApp":"/Blender-app/blender-windows/blender.exe",
+  			  "myBlenderApp":"/blender-3.2.2-windows-x64/blender.exe",
   			  "myFinishedWorks":"/RenderedImages/",
 	  		  "blenderPortableZip": "blender-3.2.2-windows-x64.zip"
   			}			  

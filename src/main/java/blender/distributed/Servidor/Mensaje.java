@@ -19,6 +19,7 @@ public class Mensaje implements Serializable{
 	String from;
 	String ipCliente;
 	int nroRender;
+	int status = 1; //1: to do; 2:in progress; 3:done
 
 	//Mensaje simple solo string de Servidor -> worker
 	public Mensaje(String name) {
@@ -36,7 +37,7 @@ public class Mensaje implements Serializable{
 	}
 	
 	//Mensaje armado por el worker
-	public Mensaje(BufferedImage bufferedImg, String name, String from, String ipCliente, int nroRender){
+	public void setRenderedImage(BufferedImage bufferedImg){
 		ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
 		try {
 			ImageIO.write(bufferedImg, "png", outputStream);
@@ -44,10 +45,6 @@ public class Mensaje implements Serializable{
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
-		this.name = name;
-		this.from = from;
-		this.ipCliente = ipCliente;
-		this.nroRender = nroRender;
 	}
 	
 	
@@ -105,6 +102,11 @@ public class Mensaje implements Serializable{
 	}
 	public Integer getEndFrame() {
 		return endFrame;
+	}
+
+	public int getStatus(){ return this.status;	}
+	public void setStatus(int status){
+		this.status = status;
 	}
 
 }

@@ -6,16 +6,17 @@ import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
 
 import java.rmi.RemoteException;
-import java.time.LocalTime;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.ArrayList;
 
 public class ClienteAction implements IClientAction {
-	Map<String,LocalTime> workersLastPing = new HashMap<String,LocalTime>();
 	Logger log = LoggerFactory.getLogger(ClienteAction.class);
+	ArrayList<Mensaje> listaTrabajos;
 
-	public ClienteAction() {
-		MDC.put("log.name", ClienteAction.class.getSimpleName().toString());
+
+	public ClienteAction(ArrayList<Mensaje> listaTrabajos) {
+		this.listaTrabajos = listaTrabajos;
+		MDC.put("log.name", ClienteAction.class.getSimpleName().toString())
+		;
 	}
 
 	@Override
@@ -26,6 +27,19 @@ public class ClienteAction implements IClientAction {
 
 	@Override
 	public Imagen renderRequest(Mensaje msg) throws RemoteException {
-		return null;
+		listaTrabajos.add(msg);
+		ThreadServer thServer = new ThreadServer(msg, this.listaTrabajos);
+		Thread th = new Thread(thServer);
+		th.start();
+		while(thServer.getRenderedImage() == null) {
+			try {
+				Thread.sleep(500);
+			} catch (InterruptedException e) {
+				e.printStackTrace();
+			}
+		}
+		log.info("Imagen renderizada");
+		th.interrupt();
+		return new Imagen(thServer.getRenderedImage());
 	}
 }
