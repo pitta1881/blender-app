@@ -7,12 +7,11 @@ import blender.distributed.Worker.Tools.ClientFTP;
 import blender.distributed.Worker.Tools.DirectoryTools;
 import com.google.gson.Gson;
 import net.lingala.zip4j.ZipFile;
+import net.lingala.zip4j.exception.ZipException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
 
-import javax.imageio.ImageIO;
-import java.awt.image.BufferedImage;
 import java.io.*;
 import java.net.Inet4Address;
 import java.net.URL;
@@ -39,7 +38,7 @@ public class Worker implements Runnable {
 	String myBlendDirectory;
 	String myBlenderApp;
 	String blenderPortableZip;
-	String myRenderedImages;
+	String worksDirectory;
 	String localIp;
 	IWorkerAction stubServer;
 	//ftp
@@ -50,7 +49,7 @@ public class Worker implements Runnable {
 	String serverIp;
 	int serverPort;
 	private boolean onBackupSv;
-	String singleWorkerWorkspace = "worker"+System.currentTimeMillis(); //"worker1663802677984"
+	String singleWorkerWorkspace = "worker1663802677984"; //"worker"+System.currentTimeMillis();
 
 
 	public void startWorker() {
@@ -93,10 +92,11 @@ public class Worker implements Runnable {
 					Thread.sleep(1000);
 				}
 				System.out.println(trabajo.getStatus());
+				File thisWorkDirectory = new File(this.worksDirectory+"\\"+trabajo.getName());
 				log.debug("Recibi un nuevo trabajo: " + trabajo.getName());
-				persistBlendFile(trabajo.getBlend(), trabajo.getName());
-				startRender(trabajo);
-				borrarTemporales();
+				File blendFile = persistBlendFile(trabajo.getBlend(), trabajo.getName());
+				startRender(trabajo, thisWorkDirectory.getPath());
+				borrarTemporales(thisWorkDirectory.getPath(), blendFile);
 				trabajo = new Mensaje("");
 				this.stubServer.checkStatus();
 			} catch (RemoteException | InterruptedException e) {
@@ -106,7 +106,7 @@ public class Worker implements Runnable {
 	}
 
 
-	private void persistBlendFile(byte[] byteBlend, String name) {
+	private File persistBlendFile(byte[] byteBlend, String name) {
 		DirectoryTools.checkOrCreateFolder(this.myBlendDirectory);
 		File folder = new File(this.myBlendDirectory);
 		File blend = new File(folder.getAbsolutePath() + "/" + name);
@@ -115,27 +115,31 @@ public class Worker implements Runnable {
 		} catch (Exception e) {
 			log.error("ERROR: " + e.getMessage());
 		}
+		return blend;
 	}
 
-	private void startRender(Mensaje trabajo) {
+	private void startRender(Mensaje trabajo, String workDirectory) {
 		//Formato: blender -b file_name.blend -f 1 //blender -b file_name.blend -s 1 -e 100 -a
 		int i = 1;
 		String blendToRender = this.myBlendDirectory + "/" + getFiles(this.myBlendDirectory).get(0);
-		File finishedWorkFolder = new File(this.myRenderedImages);
-		DirectoryTools.checkOrCreateFolder(this.myRenderedImages);
+		DirectoryTools.checkOrCreateFolder(this.worksDirectory);
+		DirectoryTools.checkOrCreateFolder(workDirectory);
 		//First configure default settings to .blend
 		log.info("Pre-configurando el archivo .blend");
-		String cmd = " -b \"" + blendToRender + "\" -o \""+this.myRenderedImages+"/frame_#####\""+ " -f " + trabajo.getStartFrame();
+		String cmd = " -b \"" + blendToRender + "\" -o \""+workDirectory+"/frame_#####\""+ " -f " + trabajo.getStartFrame();
 		File f = new File(this.myBlenderApp + cmd);//Normalize backslashs and slashs
 
 		System.out.println("CMD: " + f.getPath());
 		ejecutar(f.getPath());
 		//Start render
-		ArrayList<String> imgTerminadas = getFiles(finishedWorkFolder.getPath());
 		try {
-			File imgRendered = new File(finishedWorkFolder.getPath() + "/" + imgTerminadas.get(imgTerminadas.size() - 1));
-			BufferedImage image = ImageIO.read(imgRendered);
-			trabajo.setRenderedImage(image);
+			new ZipFile(workDirectory + "\\"+ trabajo.getName()+".zip").addFolder(new File(workDirectory));
+		} catch (ZipException e) {
+			throw new RuntimeException(e);
+		}
+		try {
+			File zipRenderedImages = new File(workDirectory + "\\" + trabajo.getName()+".zip");
+			trabajo.setZipWithRenderedImages(zipRenderedImages);
 			this.stubServer.setTrabajoStatusDone(trabajo);
 		} catch (Exception e) {
 			e.printStackTrace();
@@ -287,7 +291,7 @@ public class Worker implements Runnable {
 			this.myBlendDirectory = this.workerDirectory + "\\Blender-app\\" + singleWorkerWorkspace + paths.get("myBlendDir").toString();
 			this.myBlenderApp = this.workerDirectory + "\\Blender-app\\" + singleWorkerWorkspace + paths.get("myBlenderApp");
 			this.blenderPortableZip = paths.get("blenderPortableZip").toString();
-			this.myRenderedImages = this.workerDirectory + "\\Blender-app\\" + singleWorkerWorkspace + paths.get("myFinishedWorks");
+			this.worksDirectory = this.workerDirectory + "\\Blender-app\\" + singleWorkerWorkspace + paths.get("myFinishedWorks");
 
 			this.onBackupSv = false;
 		} catch (IOException e) {
@@ -342,22 +346,25 @@ public class Worker implements Runnable {
 		}
 	}
 
-	private void borrarTemporales() {
-		for(String toErase : getFiles(myBlendDirectory)) {
-			File f = new File(myBlendDirectory+"/"+toErase);
+	private void borrarTemporales(String workDirectory, File blendFile) {
+		for(String toErase : getFiles(workDirectory)) {
+			File f = new File(workDirectory+"\\"+toErase);
 			if(f.delete()){
-				System.out.println(myBlendDirectory+toErase+" -> Eliminado.");
+				System.out.println(workDirectory+"\\"+toErase+" -> Eliminado.");
 			}else {
-				System.out.println(myBlendDirectory+toErase+" -> No existe, o no se puede eliminar.");
+				System.out.println(workDirectory+"\\"+toErase+" -> No existe, o no se puede eliminar.");
 			}
 		}
-		for(String toErase : getFiles(myRenderedImages)) {
-			File f = new File(myRenderedImages+"/"+toErase);
-			if(f.delete()){
-				System.out.println(myRenderedImages+toErase+" -> Eliminado.");
-			}else {
-				System.out.println(myRenderedImages+toErase+" -> No existe, o no se puede eliminar.");
-			}
+		File f = new File(workDirectory);
+		if(f.delete()){
+			System.out.println(workDirectory + " -> Directorio Eliminado.");
+		}else {
+			System.out.println(workDirectory + " -> El Directorio no existe, o no se puede eliminar.");
+		}
+		if(blendFile.delete()){
+			System.out.println(blendFile.getPath()+" -> Eliminado.");
+		}else {
+			System.out.println(blendFile.getPath() + " -> No existe, o no se puede eliminar.");
 		}
 	}
 }

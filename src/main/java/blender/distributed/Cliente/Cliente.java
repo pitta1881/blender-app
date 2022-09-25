@@ -9,6 +9,7 @@ import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
 
 import java.io.File;
+import java.io.FileOutputStream;
 import java.io.FileReader;
 import java.io.IOException;
 import java.net.Inet4Address;
@@ -32,7 +33,6 @@ public class Cliente{
 	private boolean onBackupSv = false;
 	String clienteDirectory = System.getProperty("user.dir")+"\\src\\main\\resources\\Cliente\\";
 	String myRenderedImages;
-
 
 	public Cliente() {
 		readConfigFile();
@@ -113,13 +113,19 @@ public class Cliente{
 			}
 			Mensaje m = new Mensaje(this.fileContent, file.getName(), startFrame, endFrame, myIp);
 			try {
-				Imagen returned = this.stub.renderRequest(m);
-				if(returned.getByteImage().length < 100) {
+				byte[] zipReturnedBytes = this.stub.renderRequest(m);
+				if(zipReturnedBytes.length < 100) {
 					return "Ha ocurrido un error. Porfavor intentelo denuevo mas tarde";
 				}
 				DirectoryTools.checkOrCreateFolder(this.myRenderedImages);
-				returned.persistImg(this.myRenderedImages + "\\resultado.png");
-				return new File(this.myRenderedImages +"\\resultado.png").getAbsolutePath();
+				File zipResult = new File(this.myRenderedImages + "\\"+file.getName()+".zip");
+				try (FileOutputStream fos = new FileOutputStream(zipResult)) {
+					fos.write(zipReturnedBytes);
+					log.info("Exito: Archivo "+file.getName()+".zip recibido!");
+				} catch (Exception e) {
+					log.error("ERROR: " + e.getMessage());
+				}
+				return zipResult.getAbsolutePath();
 			} catch (RemoteException e) {
 				e.printStackTrace();
 			}

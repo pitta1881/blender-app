@@ -14,7 +14,7 @@
   "paths": {
   			  "myBlendDir":"/BlendFiles/",
   			  "myBlenderApp":"/blender-3.2.2-windows-x64/blender.exe",
-  			  "myFinishedWorks":"/RenderedImages/",
+  			  "myFinishedWorks":"/Works/",
 	  		  "blenderPortableZip": "blender-3.2.2-windows-x64.zip"
   			}			  
   		

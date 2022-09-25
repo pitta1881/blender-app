@@ -1,8 +1,7 @@
 package blender.distributed.Servidor;
 
-import javax.imageio.ImageIO;
-import java.awt.image.BufferedImage;
 import java.io.*;
+import java.nio.file.Files;
 
 
 public class Mensaje implements Serializable{
@@ -11,15 +10,13 @@ public class Mensaje implements Serializable{
 	 * 
 	 */
 	private static final long serialVersionUID = 1L;
-	String name;
-	byte[] blend;
-	byte[] bufferedImg;
-	int startFrame;
-	int endFrame;
-	String from;
-	String ipCliente;
-	int nroRender;
-	int status = 1; //1: to do; 2:in progress; 3:done
+	private String name;
+	private byte[] blend;
+	private byte[] zipWithRenderedImages;
+	private int startFrame;
+	private int endFrame;
+	private String ipCliente;
+	private int status = 1; //1: to do; 2:in progress; 3:done
 
 	//Mensaje simple solo string de Servidor -> worker
 	public Mensaje(String name) {
@@ -37,42 +34,21 @@ public class Mensaje implements Serializable{
 	}
 	
 	//Mensaje armado por el worker
-	public void setRenderedImage(BufferedImage bufferedImg){
-		ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+	public void setZipWithRenderedImages(File zipRenderedImages) {
 		try {
-			ImageIO.write(bufferedImg, "png", outputStream);
-			this.bufferedImg = outputStream.toByteArray();
+			zipWithRenderedImages = Files.readAllBytes(zipRenderedImages.toPath());
 		} catch (IOException e) {
-			e.printStackTrace();
+			throw new RuntimeException(e);
 		}
 	}
-	
-	
-	public byte[] getBytes(){
-		try {
-        	ByteArrayOutputStream bs= new ByteArrayOutputStream();
-        	ObjectOutputStream os = new ObjectOutputStream (bs);
-			os.writeObject(this);
-	    	os.close();
-	    	return  bs.toByteArray();
-		} catch (IOException e) {
-			e.printStackTrace();
-			return null;
-		}  
+	public void setZipWithRenderedImages(byte[] zipRenderedImagesBytes) {
+		zipWithRenderedImages = zipRenderedImagesBytes;
 	}
-	
-	public static Mensaje getMensaje(byte[] bData) {
-		try {
-			ByteArrayInputStream bs = new ByteArrayInputStream(bData); 
-			ObjectInputStream is = new ObjectInputStream(bs);
-			Mensaje msg = (Mensaje)is.readObject();
-			is.close();
-			return msg;
-		} catch (IOException | ClassNotFoundException e) {
-			e.printStackTrace();
-			return null;
-		}
+
+	public byte[] getZipWithRenderedImages() {
+		return this.zipWithRenderedImages;
 	}
+
 	public String getName() {
 		return name;
 	}
@@ -87,14 +63,6 @@ public class Mensaje implements Serializable{
 
 	public void setBlend(byte[] blend) {
 		this.blend = blend;
-	}
-
-	public String getIpCliente() {
-		return ipCliente;
-	}
-
-	public void setIpCliente(String ipCliente) {
-		this.ipCliente = ipCliente;
 	}
 
 	public Integer getStartFrame() {

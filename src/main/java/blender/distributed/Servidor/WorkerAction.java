@@ -1,6 +1,5 @@
 package blender.distributed.Servidor;
 
-import blender.distributed.Cliente.Imagen;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
@@ -67,7 +66,7 @@ public class WorkerAction implements IWorkerAction{
 		for (Mensaje trabajo : listaTrabajos) {
 			if(trabajo.getName().equals(msj.getName())){
 				trabajo.setStatus(3);
-				trabajo.setRenderedImage(Imagen.ByteArrToBuffImg(msj.bufferedImg));
+				trabajo.setZipWithRenderedImages(msj.getZipWithRenderedImages());
 			}
 		}
 	}

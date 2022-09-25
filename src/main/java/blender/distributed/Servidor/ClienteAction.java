@@ -1,6 +1,5 @@
 package blender.distributed.Servidor;
 
-import blender.distributed.Cliente.Imagen;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
@@ -26,20 +25,20 @@ public class ClienteAction implements IClientAction {
 	}
 
 	@Override
-	public Imagen renderRequest(Mensaje msg) throws RemoteException {
+	public byte[] renderRequest(Mensaje msg) throws RemoteException {
 		listaTrabajos.add(msg);
 		ThreadServer thServer = new ThreadServer(msg, this.listaTrabajos);
 		Thread th = new Thread(thServer);
 		th.start();
-		while(thServer.getRenderedImage() == null) {
+		while(thServer.getZipWithRenderedImage() == null) {
 			try {
 				Thread.sleep(500);
 			} catch (InterruptedException e) {
 				e.printStackTrace();
 			}
 		}
-		log.info("Imagen renderizada");
+		log.info("Imágenes renderizadas");
 		th.interrupt();
-		return new Imagen(thServer.getRenderedImage());
+		return thServer.getZipWithRenderedImage();
 	}
 }

@@ -88,7 +88,7 @@ public class Imagen implements Serializable{
 		}
 	}
 	
-	public boolean persistImg(String src) {
+	public boolean persistZip(String src) {
 		try {
 			File file = new File(src);
 		    ByteArrayInputStream bis = new ByteArrayInputStream(this.byteImage);
