@@ -14,31 +14,23 @@ import org.slf4j.MDC;
 
 import java.io.*;
 import java.net.Inet4Address;
-import java.net.URL;
 import java.rmi.NotBoundException;
 import java.rmi.RemoteException;
 import java.rmi.registry.LocateRegistry;
 import java.rmi.registry.Registry;
-import java.util.ArrayList;
 import java.util.Map;
 
 
-/*TODO
- *
- *
- *  #Por linea de comandos realizar un renderizado y subirlo a la cola
- *
- */
 public class Worker implements Runnable {
 	//General
 	Logger log = LoggerFactory.getLogger(Worker.class);
-	String workerDirectory = System.getProperty("user.dir") + "\\src\\main\\resources\\Worker\\";
-
-	URL workerConfigFile = this.getClass().getClassLoader().getResource("Worker\\config.json");
-	String myBlendDirectory;
-	String myBlenderApp;
 	String blenderPortableZip;
-	String worksDirectory;
+	String workerDir = System.getProperty("user.dir") + "\\src\\main\\resources\\Worker\\";
+	String singleWorkerDir = workerDir+"\\worker1663802677984\\"; //"\\worker"+System.currentTimeMillis()+"\\";
+	String blenderExe;
+	String worksDir;
+	String blendDir;
+	String rendersDir;
 	String localIp;
 	IWorkerAction stubServer;
 	//ftp
@@ -49,23 +41,22 @@ public class Worker implements Runnable {
 	String serverIp;
 	int serverPort;
 	private boolean onBackupSv;
-	String singleWorkerWorkspace = "worker1663802677984"; //"worker"+System.currentTimeMillis();
 
 
 	public void startWorker() {
 		//while(true) {
 		log.info("<-- [STEP 1] - LEYENDO ARCHIVO DE CONFIGURACION \t\t\t-->");
 		readConfigFile();
-		MDC.put("log.name", Worker.class.getSimpleName().toString() + "-" + this.localIp);
-		log.info("<-- [STEP 3] - REALIZANDO CONEXION RMI \t\t\t-->");
+		MDC.put("log.name", Worker.class.getSimpleName() + "-" + this.localIp);
+		log.info("<-- [STEP 2] - REALIZANDO CONEXION RMI \t\t\t-->");
 		getRMI();
-		log.info("<-- [STEP 4] - LANZANDO THREAD ALIVE \t\t\t-->");
+		log.info("<-- [STEP 3] - LANZANDO THREAD ALIVE \t\t\t-->");
 		lanzarThread();
-		//log.info("<-- [STEP 5] - REALIZANDO CONEXION CON RABBITMQ -->");
+		//log.info("<-- [STEP 4] - REALIZANDO CONEXION CON RABBITMQ -->");
 		//getQueueConn();
-		log.info("<-- [STEP 6] - REVISANDO ARCHIVOS NECESARIOS\t-->");
+		log.info("<-- [STEP 5] - REVISANDO ARCHIVOS NECESARIOS\t-->");
 		if (checkNeededFiles()) {
-			log.info("<-- [STEP 7] - ESPERANDO TRABAJOS\t\t\t-->");
+			log.info("<-- [STEP 6] - ESPERANDO TRABAJOS\t\t\t-->");
 			getWork();
 		} else {
 			log.debug("Error inesperado!");
@@ -82,6 +73,7 @@ public class Worker implements Runnable {
 	private void getWork() {
 		Mensaje trabajo = new Mensaje("");
 		boolean salir = false;
+		DirectoryTools.checkOrCreateFolder(this.worksDir);
 		while (!salir) {
 			try {
 				while (trabajo.getName().length() < 1) {
@@ -92,11 +84,16 @@ public class Worker implements Runnable {
 					Thread.sleep(1000);
 				}
 				System.out.println(trabajo.getStatus());
-				File thisWorkDirectory = new File(this.worksDirectory+"\\"+trabajo.getName());
-				log.debug("Recibi un nuevo trabajo: " + trabajo.getName());
-				File blendFile = persistBlendFile(trabajo.getBlend(), trabajo.getName());
-				startRender(trabajo, thisWorkDirectory.getPath());
-				borrarTemporales(thisWorkDirectory.getPath(), blendFile);
+				File thisWorkDir = new File(this.worksDir + trabajo.getName());
+				DirectoryTools.checkOrCreateFolder(thisWorkDir.getAbsolutePath());
+				File thisWorkRenderDir = new File(thisWorkDir + this.rendersDir);
+				DirectoryTools.checkOrCreateFolder(thisWorkRenderDir.getAbsolutePath());
+				File thisWorkBlendDir = new File(thisWorkDir + this.blendDir);
+				DirectoryTools.checkOrCreateFolder(thisWorkBlendDir.getAbsolutePath());
+				log.info("Recibi un nuevo trabajo: " + trabajo.getName());
+				File blendFile = persistBlendFile(trabajo.getBlend(), thisWorkBlendDir.getAbsolutePath(), trabajo.getName());
+				startRender(trabajo, thisWorkRenderDir.getAbsolutePath(), blendFile);
+				deleteDirectory(thisWorkDir);
 				trabajo = new Mensaje("");
 				this.stubServer.checkStatus();
 			} catch (RemoteException | InterruptedException e) {
@@ -106,10 +103,8 @@ public class Worker implements Runnable {
 	}
 
 
-	private File persistBlendFile(byte[] byteBlend, String name) {
-		DirectoryTools.checkOrCreateFolder(this.myBlendDirectory);
-		File folder = new File(this.myBlendDirectory);
-		File blend = new File(folder.getAbsolutePath() + "/" + name);
+	private File persistBlendFile(byte[] byteBlend, String thisWorkBlendDir, String blendName) {
+		File blend = new File(thisWorkBlendDir + "\\" + blendName);
 		try (FileOutputStream fos = new FileOutputStream(blend)) {
 			fos.write(byteBlend);
 		} catch (Exception e) {
@@ -118,51 +113,33 @@ public class Worker implements Runnable {
 		return blend;
 	}
 
-	private void startRender(Mensaje trabajo, String workDirectory) {
+	private void startRender(Mensaje trabajo, String thisWorkRenderDir, File blendFile) {
 		//Formato: blender -b file_name.blend -f 1 //blender -b file_name.blend -s 1 -e 100 -a
-		int i = 1;
-		String blendToRender = this.myBlendDirectory + "/" + getFiles(this.myBlendDirectory).get(0);
-		DirectoryTools.checkOrCreateFolder(this.worksDirectory);
-		DirectoryTools.checkOrCreateFolder(workDirectory);
 		//First configure default settings to .blend
 		log.info("Pre-configurando el archivo .blend");
-		String cmd = " -b \"" + blendToRender + "\" -o \""+workDirectory+"/frame_#####\""+ " -f " + trabajo.getStartFrame();
-		File f = new File(this.myBlenderApp + cmd);//Normalize backslashs and slashs
+		String cmd;
+		if(trabajo.getStartFrame() == trabajo.getEndFrame()) {
+			cmd = " -b \"" + blendFile.getAbsolutePath() + "\" -o \"" + thisWorkRenderDir + "\\frame_#####\"" + " -f " + trabajo.getStartFrame();
+		} else {
+			cmd = " -b \"" + blendFile.getAbsolutePath() + "\" -o \"" + thisWorkRenderDir + "\\frame_#####\"" + " -s " + trabajo.getStartFrame() + " -e " + trabajo.getEndFrame() + " -a";
+		}
+		File f = new File(this.blenderExe + cmd);//Normalize backslashs and slashs
 
-		System.out.println("CMD: " + f.getPath());
-		ejecutar(f.getPath());
-		//Start render
+		System.out.println("CMD: " + f.getAbsolutePath());
+		ejecutar(f.getAbsolutePath());
 		try {
-			new ZipFile(workDirectory + "\\"+ trabajo.getName()+".zip").addFolder(new File(workDirectory));
+			new ZipFile(thisWorkRenderDir + trabajo.getName()+".zip").addFolder(new File(thisWorkRenderDir));
 		} catch (ZipException e) {
 			throw new RuntimeException(e);
 		}
 		try {
-			File zipRenderedImages = new File(workDirectory + "\\" + trabajo.getName()+".zip");
+			File zipRenderedImages = new File(thisWorkRenderDir + trabajo.getName()+".zip");
 			trabajo.setZipWithRenderedImages(zipRenderedImages);
 			this.stubServer.setTrabajoStatusDone(trabajo);
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
 		log.info("==========Termine=========");
-	}
-
-
-	public ArrayList<String> getFiles(String path) {
-		File f = new File(path);
-		if (f.isDirectory()) {
-			ArrayList<String> res = new ArrayList<String>();
-			File[] arr_content = f.listFiles();
-			int size = arr_content.length;
-			for (int i = 0; i < size; i++) {
-				if (arr_content[i].isFile())
-					res.add(arr_content[i].getName());
-			}
-			return res;
-		} else {
-			f.mkdir();
-			return null;
-		}
 	}
 
 
@@ -234,37 +211,31 @@ public class Worker implements Runnable {
 	 * en caso de no tenerlas las descarga por ftp.
 	 */
 	private boolean checkNeededFiles() {
-		String pathRoot = this.workerDirectory;
-		String pathApp = this.workerDirectory + "\\Blender-app\\";
-		String pathWorkerApp = this.workerDirectory + "\\Blender-app\\" + singleWorkerWorkspace;
-		File fWApp = new File(pathWorkerApp);
-		DirectoryTools.checkOrCreateFolder(pathRoot);
-		DirectoryTools.checkOrCreateFolder(pathApp);
-		DirectoryTools.checkOrCreateFolder(pathWorkerApp);
-		long size = DirectoryTools.getFolderSize(fWApp);
-		log.info("Obteniendo tamanio de: " + fWApp.getAbsolutePath() + " MB:" + (size / 1024));
+		File singleWorkerDir = new File(this.singleWorkerDir);
+		DirectoryTools.checkOrCreateFolder(singleWorkerDir.getAbsolutePath());
+		long size = DirectoryTools.getFolderSize(singleWorkerDir);
+		log.info("Obteniendo tamanio de: " + singleWorkerDir.getAbsolutePath() + " MB:" + (size / 1024));
 		if (size < 30000000) {
-			downloadBlenderApp(fWApp.getAbsolutePath());
+			downloadBlenderApp();
 		} else {
 			log.info("Blender ----> LISTO");
 		}
 		return true;
 	}
 
-	@SuppressWarnings("static-access")
-	private void downloadBlenderApp(String myAppDir) {
+	private void downloadBlenderApp() {
 		log.info("La carpeta BlenderApp esta corrupta o no existe. Descargandola desde el servidor FTP");
 		this.cliFtp = connectFTP();
 		try {
 			if (this.cliFtp != null) {
 				log.info("Intentando descargar...Porfavor espere, este proceso podria tardar varios minutos...");
-				this.cliFtp.downloadSingleFile(this.cliFtp.getClient(), "/" + this.blenderPortableZip, myAppDir);
+				this.cliFtp.downloadSingleFile(this.cliFtp.getClient(), "\\" + this.blenderPortableZip, this.singleWorkerDir);
 				this.cliFtp.closeConn();
 				this.stubFtp.stopFTPServer();
 				log.info("Comenzando a UnZipear Blender... Porfavor espere, este proceso podria tardar varios minutos...");
-				new ZipFile(myAppDir + "/" + this.blenderPortableZip).extractAll(myAppDir);
-				log.info("Unzip terminado.");
-				File zipFileBlender = new File(myAppDir + "/" + this.blenderPortableZip);
+				new ZipFile(this.singleWorkerDir + this.blenderPortableZip).extractAll(this.singleWorkerDir);
+				log.info("Unzip Blender terminado.");
+				File zipFileBlender = new File(this.singleWorkerDir + this.blenderPortableZip);
 				zipFileBlender.delete();
 			} else {
 				log.error("Hubo un problema con el servidor FTP");
@@ -274,13 +245,12 @@ public class Worker implements Runnable {
 		}
 	}
 
-	@SuppressWarnings("rawtypes")
 	private void readConfigFile() {
 		Gson gson = new Gson();
 		Map config;
 		try {
 			this.localIp = Inet4Address.getLocalHost().getHostAddress();
-			config = gson.fromJson(new FileReader(this.workerDirectory + "config.json"), Map.class);
+			config = gson.fromJson(new FileReader(this.workerDir + "config.json"), Map.class);
 
 			Map server = (Map) config.get("server");
 			this.serverIp = server.get("ip").toString();
@@ -288,10 +258,11 @@ public class Worker implements Runnable {
 			this.serverFTPPort = Integer.valueOf(server.get("ftp").toString());
 
 			Map paths = (Map) config.get("paths");
-			this.myBlendDirectory = this.workerDirectory + "\\Blender-app\\" + singleWorkerWorkspace + paths.get("myBlendDir").toString();
-			this.myBlenderApp = this.workerDirectory + "\\Blender-app\\" + singleWorkerWorkspace + paths.get("myBlenderApp");
+			this.blenderExe = this.singleWorkerDir + paths.get("blenderExe");
+			this.worksDir = this.singleWorkerDir + paths.get("worksDir");
+			this.blendDir = paths.get("blendDir").toString();
+			this.rendersDir = paths.get("rendersDir").toString();
 			this.blenderPortableZip = paths.get("blenderPortableZip").toString();
-			this.worksDirectory = this.workerDirectory + "\\Blender-app\\" + singleWorkerWorkspace + paths.get("myFinishedWorks");
 
 			this.onBackupSv = false;
 		} catch (IOException e) {
@@ -299,12 +270,11 @@ public class Worker implements Runnable {
 		}
 	}
 
-	@SuppressWarnings("rawtypes")
 	private void reconfigWorker() {
 		Gson gson = new Gson();
 		Map config;
 		try {
-			config = gson.fromJson(new FileReader(this.workerDirectory + "config.json"), Map.class);
+			config = gson.fromJson(new FileReader(this.workerDir + "config.json"), Map.class);
 			Map server = (Map) config.get("server");
 			this.serverIp = server.get("ipBak").toString();
 
@@ -346,25 +316,13 @@ public class Worker implements Runnable {
 		}
 	}
 
-	private void borrarTemporales(String workDirectory, File blendFile) {
-		for(String toErase : getFiles(workDirectory)) {
-			File f = new File(workDirectory+"\\"+toErase);
-			if(f.delete()){
-				System.out.println(workDirectory+"\\"+toErase+" -> Eliminado.");
-			}else {
-				System.out.println(workDirectory+"\\"+toErase+" -> No existe, o no se puede eliminar.");
+	boolean deleteDirectory(File directoryToBeDeleted) {
+		File[] allContents = directoryToBeDeleted.listFiles();
+		if (allContents != null) {
+			for (File file : allContents) {
+				deleteDirectory(file);
 			}
 		}
-		File f = new File(workDirectory);
-		if(f.delete()){
-			System.out.println(workDirectory + " -> Directorio Eliminado.");
-		}else {
-			System.out.println(workDirectory + " -> El Directorio no existe, o no se puede eliminar.");
-		}
-		if(blendFile.delete()){
-			System.out.println(blendFile.getPath()+" -> Eliminado.");
-		}else {
-			System.out.println(blendFile.getPath() + " -> No existe, o no se puede eliminar.");
-		}
+		return directoryToBeDeleted.delete();
 	}
 }

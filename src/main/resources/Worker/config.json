@@ -12,10 +12,10 @@
   			  "pass":"admin"
   			  },
   "paths": {
-  			  "myBlendDir":"/BlendFiles/",
-  			  "myBlenderApp":"/blender-3.2.2-windows-x64/blender.exe",
-  			  "myFinishedWorks":"/Works/",
+  			  "blenderExe": "\\blender-3.2.2-windows-x64\\blender.exe",
+	          "worksDir": "\\Works\\",
+  			  "rendersDir": "\\RenderedFiles\\",
+  			  "blendDir": "\\BlendFile\\",
 	  		  "blenderPortableZip": "blender-3.2.2-windows-x64.zip"
-  			}			  
-  		
+  			}
 }
