@@ -10,8 +10,6 @@ import java.util.ArrayList;
 public class ClienteAction implements IClientAction {
 	Logger log = LoggerFactory.getLogger(ClienteAction.class);
 	ArrayList<Trabajo> listaTrabajos;
-	byte[] zipWithRenderedImages = null;
-
 
 	public ClienteAction(ArrayList<Trabajo> listaTrabajos) {
 		this.listaTrabajos = listaTrabajos;
@@ -38,7 +36,6 @@ public class ClienteAction implements IClientAction {
 				throw new RuntimeException(e);
 			}
 		}
-		log.info("Imágenes renderizadas");
 		th.interrupt();
 		listaTrabajos.remove(work);
 		return work.getZipWithRenderedImages();

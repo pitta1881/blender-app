@@ -18,7 +18,8 @@ public class ThreadServer implements Runnable {
 	public void run() {
 		boolean salir = false;
 		LocalTime initTime = LocalTime.now();
-		log.info("Trabajando en: "+work.getBlendName()+" - Frame Nº "+work.getStartFrame());
+		log.info("Trabajo iniciado: " + work.getId());
+		log.info("Trabajando en: "+work.getBlendName()+" - Frames " + work.getStartFrame() + "-" + work.getEndFrame());
 		log.info("Tiempo inicio:\t"+initTime.toString());
 		while(!salir) {
 			try {
@@ -34,5 +35,6 @@ public class ThreadServer implements Runnable {
 		LocalTime finishTime = LocalTime.now();
 		log.info("Tiempo fin:\t"+finishTime.toString());
 		log.info("Tiempo tardado:\t\t"+Duration.between(initTime, finishTime).toSeconds()+" segundos.");
+		log.info("Trabajo completado: " + work.getId());
 	}
 }
