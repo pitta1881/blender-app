@@ -1,7 +1,7 @@
 package blender.distributed.Cliente;
 
 import blender.distributed.Servidor.IClientAction;
-import blender.distributed.Servidor.Mensaje;
+import blender.distributed.Servidor.Trabajo;
 import blender.distributed.Worker.Tools.DirectoryTools;
 import com.google.gson.Gson;
 import org.slf4j.Logger;
@@ -36,7 +36,7 @@ public class Cliente{
 
 	public Cliente() {
 		readConfigFile();
-		MDC.put("log.name", Cliente.class.getSimpleName().toString());
+		MDC.put("log.name", Cliente.class.getSimpleName());
 	}
 	
 	public void connectRMI(String serverIp, int serverPort, int attemps) {
@@ -105,15 +105,9 @@ public class Cliente{
 		connectRMI(serverIp, serverPort, 0);
 		if(this.file != null) {
 			log.info("Enviando el archivo: "+this.file.getName());
-			String myIp = "";
+			Trabajo work = new Trabajo(this.fileContent, file.getName(), startFrame, endFrame);
 			try {
-				myIp = Inet4Address.getLocalHost().getHostAddress();
-			} catch (UnknownHostException e1) {
-				e1.printStackTrace();
-			}
-			Mensaje m = new Mensaje(this.fileContent, file.getName(), startFrame, endFrame, myIp);
-			try {
-				byte[] zipReturnedBytes = this.stub.renderRequest(m);
+				byte[] zipReturnedBytes = this.stub.renderRequest(work);
 				if(zipReturnedBytes.length < 100) {
 					return "Ha ocurrido un error. Porfavor intentelo denuevo mas tarde";
 				}

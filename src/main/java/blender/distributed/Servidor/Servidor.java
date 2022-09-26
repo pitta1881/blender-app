@@ -31,7 +31,7 @@ public class Servidor {
 	private String backupIp;
 	final Integer inicialWorkers = 3;
 	private ArrayList<String> listaWorkers = new ArrayList<String>();
-	private ArrayList<Mensaje> listaTrabajos = new ArrayList<Mensaje>();
+	private ArrayList<Trabajo> listaTrabajos = new ArrayList<Trabajo>();
 	Map<String, LocalTime> workersLastPing = new HashMap<String,LocalTime>();
 
 	//RMI

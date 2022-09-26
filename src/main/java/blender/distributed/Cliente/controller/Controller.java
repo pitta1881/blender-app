@@ -11,10 +11,6 @@ public class Controller{
 	public Controller(Cliente modelo) {
 		this.cliente = modelo;
 	}
-	
-	void connectRMI(String ip, int port) {
-		this.cliente.connectRMI(ip, port, 0);
-	}
 	public void setFile(File f) {
 		this.cliente.setFile(f);
 	}

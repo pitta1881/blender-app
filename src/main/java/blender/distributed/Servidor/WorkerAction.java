@@ -7,18 +7,16 @@ import org.slf4j.MDC;
 import java.rmi.RemoteException;
 import java.time.LocalTime;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.Map;
 
 public class WorkerAction implements IWorkerAction{
-	ArrayList<String> listaWorkers;
-	ArrayList<Mensaje> listaTrabajos;
-	ArrayList<String> workerToRemove;
-	Map<String,LocalTime> workersLastPing = new HashMap<String,LocalTime>();
 	Logger log = LoggerFactory.getLogger(WorkerAction.class);
+	Map<String,LocalTime> workersLastPing;
+	ArrayList<String> listaWorkers;
+	ArrayList<Trabajo> listaTrabajos;
 
-	public WorkerAction(ArrayList<String> listaWorkers, ArrayList<Mensaje> listaTrabajos, Map<String, LocalTime> workersLastPing) {
-		MDC.put("log.name", WorkerAction.class.getSimpleName().toString());
+	public WorkerAction(ArrayList<String> listaWorkers, ArrayList<Trabajo> listaTrabajos, Map<String, LocalTime> workersLastPing) {
+		MDC.put("log.name", WorkerAction.class.getSimpleName());
 		this.listaWorkers = listaWorkers;
 		this.listaTrabajos = listaTrabajos;
 		this.workersLastPing = workersLastPing;
@@ -43,12 +41,12 @@ public class WorkerAction implements IWorkerAction{
 	}
 
 	@Override
-	public Mensaje giveWorkToDo(String worker) throws RemoteException {
+	public Trabajo giveWorkToDo(String worker) throws RemoteException {
 		if(listaTrabajos.size() == 0){
-			return new Mensaje("empty");
+			return null;
 		}
 		int i = 0;
-		Mensaje trabajo = listaTrabajos.get(i);
+		Trabajo trabajo = listaTrabajos.get(i);
 		while(trabajo.getStatus() != 1 &&  i < listaTrabajos.size()){
 			trabajo = listaTrabajos.get(i);
 			i++;
@@ -57,17 +55,16 @@ public class WorkerAction implements IWorkerAction{
 			trabajo.setStatus(2);
 			return trabajo;
 		} else {
-			return new Mensaje("empty");
+			return null;
 		}
 	}
 
 	@Override
-	public void setTrabajoStatusDone(Mensaje msj) throws RemoteException {
-		for (Mensaje trabajo : listaTrabajos) {
-			if(trabajo.getName().equals(msj.getName())){
-				trabajo.setStatus(3);
-				trabajo.setZipWithRenderedImages(msj.getZipWithRenderedImages());
-			}
+	public void setTrabajoStatusDone(String id, byte[] zipWithRenderedImages) throws RemoteException {
+		Trabajo work = listaTrabajos.stream().filter(trabajo -> id.equals(trabajo.getId())).findFirst().orElse(null);
+		if(work != null) {
+			work.setStatus(3);
+			work.setZipWithRenderedImages(zipWithRenderedImages);
 		}
 	}
 }

@@ -9,10 +9,11 @@ import java.util.ArrayList;
 
 public class ClienteAction implements IClientAction {
 	Logger log = LoggerFactory.getLogger(ClienteAction.class);
-	ArrayList<Mensaje> listaTrabajos;
+	ArrayList<Trabajo> listaTrabajos;
+	byte[] zipWithRenderedImages = null;
 
 
-	public ClienteAction(ArrayList<Mensaje> listaTrabajos) {
+	public ClienteAction(ArrayList<Trabajo> listaTrabajos) {
 		this.listaTrabajos = listaTrabajos;
 		MDC.put("log.name", ClienteAction.class.getSimpleName().toString())
 		;
@@ -25,20 +26,21 @@ public class ClienteAction implements IClientAction {
 	}
 
 	@Override
-	public byte[] renderRequest(Mensaje msg) throws RemoteException {
-		listaTrabajos.add(msg);
-		ThreadServer thServer = new ThreadServer(msg, this.listaTrabajos);
+	public byte[] renderRequest(Trabajo work) throws RemoteException {
+		listaTrabajos.add(work);
+		ThreadServer thServer = new ThreadServer(work);
 		Thread th = new Thread(thServer);
 		th.start();
-		while(thServer.getZipWithRenderedImage() == null) {
+		while(work.getStatus() != 3) {
 			try {
 				Thread.sleep(500);
 			} catch (InterruptedException e) {
-				e.printStackTrace();
+				throw new RuntimeException(e);
 			}
 		}
 		log.info("Imágenes renderizadas");
 		th.interrupt();
-		return thServer.getZipWithRenderedImage();
+		listaTrabajos.remove(work);
+		return work.getZipWithRenderedImages();
 	}
 }

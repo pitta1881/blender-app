@@ -2,7 +2,7 @@ package blender.distributed.Worker;
 
 import blender.distributed.Servidor.IFTPManager;
 import blender.distributed.Servidor.IWorkerAction;
-import blender.distributed.Servidor.Mensaje;
+import blender.distributed.Servidor.Trabajo;
 import blender.distributed.Worker.Tools.ClientFTP;
 import blender.distributed.Worker.Tools.DirectoryTools;
 import com.google.gson.Gson;
@@ -14,6 +14,7 @@ import org.slf4j.MDC;
 
 import java.io.*;
 import java.net.Inet4Address;
+import java.nio.file.Files;
 import java.rmi.NotBoundException;
 import java.rmi.RemoteException;
 import java.rmi.registry.LocateRegistry;
@@ -71,30 +72,27 @@ public class Worker implements Runnable {
 	}
 
 	private void getWork() {
-		Mensaje trabajo = new Mensaje("");
+		Trabajo trabajo = null;
 		boolean salir = false;
 		DirectoryTools.checkOrCreateFolder(this.worksDir);
 		while (!salir) {
 			try {
-				while (trabajo.getName().length() < 1) {
+				while (trabajo == null) {
 					trabajo = this.stubServer.giveWorkToDo(localIp);
-					if (trabajo.getName().contentEquals("empty")) {
-						trabajo = new Mensaje("");
-					}
 					Thread.sleep(1000);
 				}
 				System.out.println(trabajo.getStatus());
-				File thisWorkDir = new File(this.worksDir + trabajo.getName());
+				File thisWorkDir = new File(this.worksDir + trabajo.getBlendName());
 				DirectoryTools.checkOrCreateFolder(thisWorkDir.getAbsolutePath());
 				File thisWorkRenderDir = new File(thisWorkDir + this.rendersDir);
 				DirectoryTools.checkOrCreateFolder(thisWorkRenderDir.getAbsolutePath());
 				File thisWorkBlendDir = new File(thisWorkDir + this.blendDir);
 				DirectoryTools.checkOrCreateFolder(thisWorkBlendDir.getAbsolutePath());
-				log.info("Recibi un nuevo trabajo: " + trabajo.getName());
-				File blendFile = persistBlendFile(trabajo.getBlend(), thisWorkBlendDir.getAbsolutePath(), trabajo.getName());
+				log.info("Recibi un nuevo trabajo: " + trabajo.getBlendName());
+				File blendFile = persistBlendFile(trabajo.getBlendFile(), thisWorkBlendDir.getAbsolutePath(), trabajo.getBlendName());
 				startRender(trabajo, thisWorkRenderDir.getAbsolutePath(), blendFile);
-				deleteDirectory(thisWorkDir);
-				trabajo = new Mensaje("");
+				DirectoryTools.deleteDirectory(thisWorkDir);
+				trabajo = null;
 				this.stubServer.checkStatus();
 			} catch (RemoteException | InterruptedException e) {
 				throw new RuntimeException(e);
@@ -113,29 +111,33 @@ public class Worker implements Runnable {
 		return blend;
 	}
 
-	private void startRender(Mensaje trabajo, String thisWorkRenderDir, File blendFile) {
+	private void startRender(Trabajo work, String thisWorkRenderDir, File blendFile) {
 		//Formato: blender -b file_name.blend -f 1 //blender -b file_name.blend -s 1 -e 100 -a
 		//First configure default settings to .blend
 		log.info("Pre-configurando el archivo .blend");
 		String cmd;
-		if(trabajo.getStartFrame() == trabajo.getEndFrame()) {
-			cmd = " -b \"" + blendFile.getAbsolutePath() + "\" -o \"" + thisWorkRenderDir + "\\frame_#####\"" + " -f " + trabajo.getStartFrame();
+		if(work.getStartFrame() == work.getEndFrame()) {
+			cmd = " -b \"" + blendFile.getAbsolutePath() + "\" -o \"" + thisWorkRenderDir + "\\frame_#####\"" + " -f " + work.getStartFrame();
 		} else {
-			cmd = " -b \"" + blendFile.getAbsolutePath() + "\" -o \"" + thisWorkRenderDir + "\\frame_#####\"" + " -s " + trabajo.getStartFrame() + " -e " + trabajo.getEndFrame() + " -a";
+			cmd = " -b \"" + blendFile.getAbsolutePath() + "\" -o \"" + thisWorkRenderDir + "\\frame_#####\"" + " -s " + work.getStartFrame() + " -e " + work.getEndFrame() + " -a";
 		}
 		File f = new File(this.blenderExe + cmd);//Normalize backslashs and slashs
 
 		System.out.println("CMD: " + f.getAbsolutePath());
 		ejecutar(f.getAbsolutePath());
 		try {
-			new ZipFile(thisWorkRenderDir + trabajo.getName()+".zip").addFolder(new File(thisWorkRenderDir));
+			new ZipFile(thisWorkRenderDir + work.getBlendName()+".zip").addFolder(new File(thisWorkRenderDir));
 		} catch (ZipException e) {
 			throw new RuntimeException(e);
 		}
 		try {
-			File zipRenderedImages = new File(thisWorkRenderDir + trabajo.getName()+".zip");
-			trabajo.setZipWithRenderedImages(zipRenderedImages);
-			this.stubServer.setTrabajoStatusDone(trabajo);
+			File zipRenderedImages = new File(thisWorkRenderDir + work.getBlendName()+".zip");
+			try {
+				byte[] zipWithRenderedImages = Files.readAllBytes(zipRenderedImages.toPath());
+				this.stubServer.setTrabajoStatusDone(work.getId(), zipWithRenderedImages);
+			} catch (IOException e) {
+				throw new RuntimeException(e);
+			}
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
@@ -314,15 +316,5 @@ public class Worker implements Runnable {
 		} catch (InterruptedException e) {
 			e.printStackTrace();
 		}
-	}
-
-	boolean deleteDirectory(File directoryToBeDeleted) {
-		File[] allContents = directoryToBeDeleted.listFiles();
-		if (allContents != null) {
-			for (File file : allContents) {
-				deleteDirectory(file);
-			}
-		}
-		return directoryToBeDeleted.delete();
 	}
 }
