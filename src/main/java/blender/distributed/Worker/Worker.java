@@ -12,14 +12,22 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
 
-import java.io.*;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.FileReader;
+import java.io.IOException;
 import java.net.Inet4Address;
 import java.nio.file.Files;
 import java.rmi.NotBoundException;
 import java.rmi.RemoteException;
 import java.rmi.registry.LocateRegistry;
 import java.rmi.registry.Registry;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Executor;
+import java.util.concurrent.Executors;
 
 
 public class Worker implements Runnable {
@@ -81,7 +89,6 @@ public class Worker implements Runnable {
 					trabajo = this.stubServer.giveWorkToDo(localIp);
 					Thread.sleep(1000);
 				}
-				System.out.println(trabajo.getStatus());
 				File thisWorkDir = new File(this.worksDir + trabajo.getBlendName());
 				DirectoryTools.checkOrCreateFolder(thisWorkDir.getAbsolutePath());
 				File thisWorkRenderDir = new File(thisWorkDir + this.rendersDir);
@@ -116,15 +123,51 @@ public class Worker implements Runnable {
 		//First configure default settings to .blend
 		log.info("Pre-configurando el archivo .blend");
 		String cmd;
-		if(work.getStartFrame() == work.getEndFrame()) {
+		int totalFrames = work.getEndFrame() - work.getStartFrame();
+		int threadsNedeed = 1;
+		CountDownLatch latch;
+		List<WorkerProcessThread> workerThreads = new ArrayList<>();
+		if(totalFrames == 0) {
 			cmd = " -b \"" + blendFile.getAbsolutePath() + "\" -o \"" + thisWorkRenderDir + "\\frame_#####\"" + " -f " + work.getStartFrame();
+			latch = new CountDownLatch(threadsNedeed);
+			File f = new File(this.blenderExe + cmd);//Normalize backslashs and slashs
+			System.out.println("CMD: " + f.getAbsolutePath());
+			workerThreads.add(new WorkerProcessThread(latch, f.getAbsolutePath()));
 		} else {
-			cmd = " -b \"" + blendFile.getAbsolutePath() + "\" -o \"" + thisWorkRenderDir + "\\frame_#####\"" + " -s " + work.getStartFrame() + " -e " + work.getEndFrame() + " -a";
+			if(totalFrames >= 300){
+				threadsNedeed = 8;
+			} else if (totalFrames >= 100) {
+				threadsNedeed = 4;
+			} else if (totalFrames >= 50) {
+				threadsNedeed = 2;
+			}
+			log.info("Cantidad de Frames a renderizar: " + totalFrames);
+			log.info("Cantidad de Threads a crear: " + threadsNedeed);
+			int rangeFrame = (int) Math.ceil((float)totalFrames / (float)threadsNedeed);
+			int startFrame = work.getStartFrame();
+			int endFrame = startFrame + rangeFrame;
+			latch = new CountDownLatch(threadsNedeed);
+			for (int i = 0; i < threadsNedeed; i++) {
+				cmd = " -b \"" + blendFile.getAbsolutePath() + "\" -o \"" + thisWorkRenderDir + "\\frame_#####\"" + " -s " + startFrame + " -e " + endFrame + " -a";
+				File f = new File(this.blenderExe + cmd);//Normalize backslashs and slashs
+				log.info("CMD: " + f.getAbsolutePath());
+				workerThreads.add(new WorkerProcessThread(latch, f.getAbsolutePath()));
+				startFrame = endFrame + 1;
+				endFrame += rangeFrame;
+				if(endFrame > work.getEndFrame()){
+					endFrame = work.getEndFrame();
+				}
+			}
 		}
-		File f = new File(this.blenderExe + cmd);//Normalize backslashs and slashs
-
-		System.out.println("CMD: " + f.getAbsolutePath());
-		ejecutar(f.getAbsolutePath());
+		Executor executor = Executors.newFixedThreadPool(workerThreads.size());
+		for(final WorkerProcessThread wt : workerThreads) {
+			executor.execute(wt);
+		}
+		try {
+			latch.await();
+		} catch (InterruptedException e) {
+			throw new RuntimeException(e);
+		}
 		try {
 			new ZipFile(thisWorkRenderDir + work.getBlendName()+".zip").addFolder(new File(thisWorkRenderDir));
 		} catch (ZipException e) {
@@ -296,25 +339,4 @@ public class Worker implements Runnable {
 		startWorker();
 	}
 
-	private void ejecutar(String cmd) {
-		try {
-			Process p = Runtime.getRuntime().exec(cmd);
-			BufferedReader input = new BufferedReader(new InputStreamReader(p.getInputStream()));
-			String line = "";
-			while (true) {
-				line = input.readLine();
-				if (line == null) break;
-				if (line.contains("| Rendered ")) {
-
-				} else {
-					System.out.println("Line: " + line);
-				}
-			}
-			p.waitFor();
-		} catch (IOException e) {
-			e.printStackTrace();
-		} catch (InterruptedException e) {
-			e.printStackTrace();
-		}
-	}
 }
