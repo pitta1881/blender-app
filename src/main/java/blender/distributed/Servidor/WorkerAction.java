@@ -23,15 +23,15 @@ public class WorkerAction implements IWorkerAction{
 	}
 
 	@Override
-	public void helloServer(String worker) throws RemoteException {
+	public void helloServer(String workerName) throws RemoteException {
 		synchronized (listaTrabajos) {
-			if(!listaWorkers.contains(worker)) {
-				this.listaWorkers.add(worker);
-				log.info("Registrando nuevo worker: "+worker);
+			if(!listaWorkers.contains(workerName)) {
+				this.listaWorkers.add(workerName);
+				log.info("Registrando nuevo worker: "+workerName);
 			}
 		}
 		synchronized (workersLastPing) {
-			workersLastPing.put(worker,LocalTime.now());
+			workersLastPing.put(workerName,LocalTime.now());
 		}
 	}
 

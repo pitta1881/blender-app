@@ -5,12 +5,15 @@ import org.slf4j.LoggerFactory;
 
 import java.time.Duration;
 import java.time.LocalTime;
+import java.util.concurrent.CountDownLatch;
 
 public class ThreadServer implements Runnable {
 	Logger log = LoggerFactory.getLogger(ThreadServer.class);
 	Trabajo work;
+	private final CountDownLatch latchSignal;
 
-	public ThreadServer(Trabajo work) {
+	public ThreadServer(CountDownLatch latch, Trabajo work) {
+		this.latchSignal = latch;
 		this.work = work;
 	}
 
@@ -36,5 +39,6 @@ public class ThreadServer implements Runnable {
 		log.info("Tiempo fin:\t"+finishTime.toString());
 		log.info("Tiempo tardado:\t\t"+Duration.between(initTime, finishTime).toSeconds()+" segundos.");
 		log.info("Trabajo completado: " + work.getId());
+		this.latchSignal.countDown();
 	}
 }

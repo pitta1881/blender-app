@@ -35,7 +35,8 @@ public class Worker implements Runnable {
 	Logger log = LoggerFactory.getLogger(Worker.class);
 	String blenderPortableZip;
 	String workerDir = System.getProperty("user.dir") + "\\src\\main\\resources\\Worker\\";
-	String singleWorkerDir = workerDir+"\\worker1663802677984\\"; //"\\worker"+System.currentTimeMillis()+"\\";
+	String workerName = "worker1663802677984";//"worker"+System.currentTimeMillis();
+	String singleWorkerDir = workerDir+"\\"+workerName+"\\"; //"\\worker"+System.currentTimeMillis()+"\\";
 	String blenderExe;
 	String worksDir;
 	String blendDir;
@@ -74,7 +75,7 @@ public class Worker implements Runnable {
 	}
 
 	private void lanzarThread() {
-		WorkerAliveThread alive = new WorkerAliveThread(this.stubServer, this.localIp);
+		WorkerAliveThread alive = new WorkerAliveThread(this.stubServer, this.workerName);
 		Thread tAlive = new Thread(alive);
 		tAlive.start();
 	}
@@ -218,12 +219,11 @@ public class Worker implements Runnable {
 			log.info("Obteniendo stub...");
 			this.stubFtp = (IFTPManager) clienteRMI.lookup("Acciones");
 			this.stubServer = (IWorkerAction) clienteRMI.lookup("server");
-			this.stubServer.helloServer(localIp);
 		} catch (RemoteException | NotBoundException e) {
 			log.error("RMI Error: " + e.getMessage());
 			if (this.onBackupSv) {
 				log.info("Re-intentando conectar al servidor principal: " + this.serverIp + ":" + this.serverPort);
-				for (int i = 5; i > 0; i--) {
+				for (int i = 3; i > 0; i--) {
 					try {
 						Thread.sleep(1000);
 						log.info("Re-intentando en..." + i);
@@ -233,10 +233,9 @@ public class Worker implements Runnable {
 				}
 				readConfigFile();//Vuelvo a la config principal
 				this.onBackupSv = false;
-				getRMI();
 			} else {
 				log.info("Re-intentando conectar al servidor backup: " + this.serverIp + ":" + this.serverPort);
-				for (int i = 5; i > 0; i--) {
+				for (int i = 3; i > 0; i--) {
 					try {
 						Thread.sleep(1000);
 						log.info("Re-intentando en..." + i);
@@ -246,8 +245,8 @@ public class Worker implements Runnable {
 				}
 				reconfigWorker();
 				this.onBackupSv = true;
-				getRMI();
 			}
+			getRMI();
 		}
 	}
 

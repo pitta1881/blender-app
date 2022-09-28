@@ -6,15 +6,18 @@ import org.slf4j.MDC;
 
 import java.rmi.RemoteException;
 import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Executor;
+import java.util.concurrent.Executors;
 
 public class ClienteAction implements IClientAction {
 	Logger log = LoggerFactory.getLogger(ClienteAction.class);
 	ArrayList<Trabajo> listaTrabajos;
 
-	public ClienteAction(ArrayList<Trabajo> listaTrabajos) {
+	public ClienteAction(ArrayList<String> listaWorkers, ArrayList<Trabajo> listaTrabajos) {
 		this.listaTrabajos = listaTrabajos;
-		MDC.put("log.name", ClienteAction.class.getSimpleName().toString())
-		;
+		MDC.put("log.name", ClienteAction.class.getSimpleName());
 	}
 
 	@Override
@@ -26,17 +29,18 @@ public class ClienteAction implements IClientAction {
 	@Override
 	public byte[] renderRequest(Trabajo work) throws RemoteException {
 		listaTrabajos.add(work);
-		ThreadServer thServer = new ThreadServer(work);
-		Thread th = new Thread(thServer);
-		th.start();
-		while(work.getStatus() != 3) {
-			try {
-				Thread.sleep(500);
-			} catch (InterruptedException e) {
-				throw new RuntimeException(e);
-			}
+		CountDownLatch latch = new CountDownLatch(1);
+		List<ThreadServer> serverThread = new ArrayList<>();
+		serverThread.add(new ThreadServer(latch, work));
+		Executor executor = Executors.newFixedThreadPool(serverThread.size());
+		for(final ThreadServer wt : serverThread) {
+			executor.execute(wt);
 		}
-		th.interrupt();
+		try {
+			latch.await();
+		} catch (InterruptedException e) {
+			throw new RuntimeException(e);
+		}
 		listaTrabajos.remove(work);
 		return work.getZipWithRenderedImages();
 	}

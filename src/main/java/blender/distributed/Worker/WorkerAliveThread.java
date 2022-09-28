@@ -7,18 +7,18 @@ import java.rmi.RemoteException;
 public class WorkerAliveThread implements Runnable{
 
 	private IWorkerAction stubServer;
-	private String localIp;
+	private String workerName;
 	
-	public WorkerAliveThread(IWorkerAction stubServer, String localIp) {
+	public WorkerAliveThread(IWorkerAction stubServer, String workerName) {
 		this.stubServer = stubServer;
-		this.localIp = localIp;
+		this.workerName = workerName;
 	}
 	
 	@Override
 	public void run() {
 		while(true) {
 			try {
-				this.stubServer.helloServer(this.localIp);
+				this.stubServer.helloServer(this.workerName);
 				Thread.sleep(60000);
 			} catch (RemoteException | InterruptedException e) {
 				break;

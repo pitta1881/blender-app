@@ -8,7 +8,6 @@ import org.slf4j.MDC;
 
 import java.io.FileReader;
 import java.io.IOException;
-import java.net.URL;
 import java.rmi.RemoteException;
 import java.rmi.registry.LocateRegistry;
 import java.rmi.registry.Registry;
@@ -25,14 +24,12 @@ public class Servidor {
 	//General settings
 	Logger log = LoggerFactory.getLogger(Servidor.class);
 	String serverDirectory = System.getProperty("user.dir")+"\\src\\main\\resources\\Servidor\\";
-	URL serverConfigFile = this.getClass().getClassLoader().getResource("Servidor\\config.json");
 	String myFTPDirectory;
 	private String myIp;
 	private String backupIp;
-	final Integer inicialWorkers = 3;
-	private ArrayList<String> listaWorkers = new ArrayList<String>();
-	private ArrayList<Trabajo> listaTrabajos = new ArrayList<Trabajo>();
-	Map<String, LocalTime> workersLastPing = new HashMap<String,LocalTime>();
+	private ArrayList<String> listaWorkers = new ArrayList<>();
+	private ArrayList<Trabajo> listaTrabajos = new ArrayList<>();
+	Map<String, LocalTime> workersLastPing = new HashMap<>();
 
 	//RMI
 	private int rmiPortCli;
@@ -56,12 +53,6 @@ public class Servidor {
 		initialConfig();
 		try {
 			runRMIServer();
-			/*
-			for (int i = 0; i < 1; i++) {
-				Worker workerProcess = new Worker();
-				new Thread(workerProcess).start();
-				sleep(2000);	//esto xq sino se vuelve loco el ftp connection
-			}*/
 			while(true) {
 				try {
 					//Checkeo si se cayo un nodo
@@ -94,7 +85,7 @@ public class Servidor {
 		registrySv = LocateRegistry.createRegistry(this.rmiPortSv);
 
 		remoteFtpMan = (IFTPManager) UnicastRemoteObject.exportObject(new FTPManager(this.ftpPort, this.ftp),0);
-		remoteCliente = (IClientAction) UnicastRemoteObject.exportObject(new ClienteAction(this.listaTrabajos),0);
+		remoteCliente = (IClientAction) UnicastRemoteObject.exportObject(new ClienteAction(this.listaWorkers, this.listaTrabajos),0);
 		remoteWorker = (IWorkerAction) UnicastRemoteObject.exportObject(new WorkerAction(this.listaWorkers, this.listaTrabajos, this.workersLastPing),0);
 
 		registrySv.rebind("Acciones", remoteFtpMan);
@@ -109,7 +100,7 @@ public class Servidor {
 		Gson gson = new Gson();
 		Map config;
 		try {
-			config = gson.fromJson(new FileReader(serverDirectory+"config.json"), Map.class);
+			config = gson.fromJson(new FileReader(this.serverDirectory+"config.json"), Map.class);
 			
 			Map data = (Map) config.get("server");
 			this.myIp = data.get("ip").toString();
