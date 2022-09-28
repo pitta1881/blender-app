@@ -1,6 +1,6 @@
 package blender.distributed.Worker;
 
-import blender.distributed.Servidor.IWorkerAction;
+import blender.distributed.Servidor.Worker.IWorkerAction;
 
 import java.rmi.RemoteException;
 

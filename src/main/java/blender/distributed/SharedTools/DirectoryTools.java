@@ -1,4 +1,4 @@
-package blender.distributed.Worker.Tools;
+package blender.distributed.SharedTools;
 
 import blender.distributed.Worker.Worker;
 import org.slf4j.Logger;

@@ -1,10 +1,10 @@
 package blender.distributed.Worker;
 
-import blender.distributed.Servidor.IFTPManager;
-import blender.distributed.Servidor.IWorkerAction;
-import blender.distributed.Servidor.Trabajo;
-import blender.distributed.Worker.Tools.ClientFTP;
-import blender.distributed.Worker.Tools.DirectoryTools;
+import blender.distributed.Servidor.FTP.IFTPAction;
+import blender.distributed.Servidor.Worker.IWorkerAction;
+import blender.distributed.Servidor.Trabajo.Trabajo;
+import blender.distributed.Worker.FTP.ClientFTP;
+import blender.distributed.SharedTools.DirectoryTools;
 import com.google.gson.Gson;
 import net.lingala.zip4j.ZipFile;
 import net.lingala.zip4j.exception.ZipException;
@@ -44,7 +44,7 @@ public class Worker implements Runnable {
 	String localIp;
 	IWorkerAction stubServer;
 	//ftp
-	IFTPManager stubFtp;
+	IFTPAction stubFtp;
 	ClientFTP cliFtp;
 	int serverFTPPort;
 	//server
@@ -217,7 +217,7 @@ public class Worker implements Runnable {
 			Registry clienteRMI = LocateRegistry.getRegistry(this.serverIp, serverPort);
 			log.info("Obteniendo servicios RMI.");
 			log.info("Obteniendo stub...");
-			this.stubFtp = (IFTPManager) clienteRMI.lookup("Acciones");
+			this.stubFtp = (IFTPAction) clienteRMI.lookup("Acciones");
 			this.stubServer = (IWorkerAction) clienteRMI.lookup("server");
 		} catch (RemoteException | NotBoundException e) {
 			log.error("RMI Error: " + e.getMessage());

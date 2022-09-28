@@ -1,5 +1,7 @@
 package blender.distributed.Servidor;
 
+import blender.distributed.Servidor.Trabajo.Trabajo;
+import blender.distributed.Servidor.Trabajo.TrabajoStatus;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -26,7 +28,7 @@ public class ThreadServer implements Runnable {
 		log.info("Tiempo inicio:\t"+initTime.toString());
 		while(!salir) {
 			try {
-				if (work.getStatus() == 3) {
+				if (work.getStatus() == TrabajoStatus.DONE) {
 					salir = true;
 				} else {
 					Thread.sleep(500);

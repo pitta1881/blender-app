@@ -1,5 +1,7 @@
-package blender.distributed.Servidor;
+package blender.distributed.Servidor.Worker;
 
+import blender.distributed.Servidor.Trabajo.Trabajo;
+import blender.distributed.Servidor.Trabajo.TrabajoStatus;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
@@ -47,12 +49,12 @@ public class WorkerAction implements IWorkerAction{
 		}
 		int i = 0;
 		Trabajo trabajo = listaTrabajos.get(i);
-		while(trabajo.getStatus() != 1 &&  i < listaTrabajos.size()){
+		while(trabajo.getStatus() != TrabajoStatus.TO_DO &&  i < listaTrabajos.size()){
 			trabajo = listaTrabajos.get(i);
 			i++;
 		}
-		if(trabajo.getStatus() == 1){
-			trabajo.setStatus(2);
+		if(trabajo.getStatus() == TrabajoStatus.TO_DO){
+			trabajo.setStatus(TrabajoStatus.IN_PROGRESS);
 			return trabajo;
 		} else {
 			return null;
@@ -63,7 +65,7 @@ public class WorkerAction implements IWorkerAction{
 	public void setTrabajoStatusDone(String id, byte[] zipWithRenderedImages) throws RemoteException {
 		Trabajo work = listaTrabajos.stream().filter(trabajo -> id.equals(trabajo.getId())).findFirst().orElse(null);
 		if(work != null) {
-			work.setStatus(3);
+			work.setStatus(TrabajoStatus.DONE);
 			work.setZipWithRenderedImages(zipWithRenderedImages);
 		}
 	}

@@ -1,4 +1,4 @@
-package blender.distributed.Servidor.helpers;
+package blender.distributed.Servidor.FTP;
 
 
 import org.apache.ftpserver.FtpServer;

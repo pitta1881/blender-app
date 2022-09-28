@@ -1,6 +1,13 @@
 package blender.distributed.Servidor;
 
-import blender.distributed.Servidor.helpers.ServerFtp;
+import blender.distributed.Servidor.Cliente.ClienteAction;
+import blender.distributed.Servidor.Cliente.IClientAction;
+import blender.distributed.Servidor.FTP.FTPAction;
+import blender.distributed.Servidor.FTP.IFTPAction;
+import blender.distributed.Servidor.Trabajo.Trabajo;
+import blender.distributed.Servidor.FTP.ServerFtp;
+import blender.distributed.Servidor.Worker.IWorkerAction;
+import blender.distributed.Servidor.Worker.WorkerAction;
 import com.google.gson.Gson;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -37,7 +44,7 @@ public class Servidor {
 	Registry registryCli;
 	Registry registrySv;
 	private IClientAction remoteCliente;
-	private IFTPManager remoteFtpMan;
+	private IFTPAction remoteFtpMan;
 	private IWorkerAction remoteWorker;
 
 
@@ -84,7 +91,7 @@ public class Servidor {
 		registryCli = LocateRegistry.createRegistry(this.rmiPortCli);
 		registrySv = LocateRegistry.createRegistry(this.rmiPortSv);
 
-		remoteFtpMan = (IFTPManager) UnicastRemoteObject.exportObject(new FTPManager(this.ftpPort, this.ftp),0);
+		remoteFtpMan = (IFTPAction) UnicastRemoteObject.exportObject(new FTPAction(this.ftpPort, this.ftp),0);
 		remoteCliente = (IClientAction) UnicastRemoteObject.exportObject(new ClienteAction(this.listaWorkers, this.listaTrabajos),0);
 		remoteWorker = (IWorkerAction) UnicastRemoteObject.exportObject(new WorkerAction(this.listaWorkers, this.listaTrabajos, this.workersLastPing),0);
 

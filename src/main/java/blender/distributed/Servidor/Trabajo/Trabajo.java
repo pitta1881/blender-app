@@ -1,4 +1,4 @@
-package blender.distributed.Servidor;
+package blender.distributed.Servidor.Trabajo;
 
 import java.io.Serializable;
 import java.util.UUID;
@@ -11,7 +11,7 @@ public class Trabajo implements Serializable{
 	private byte[] blendFile;
 	private int startFrame;
 	private int endFrame;
-	private int status = 1; //1: to do; 2:in progress; 3:done
+	private TrabajoStatus status = TrabajoStatus.TO_DO;
 	byte[] zipWithRenderedImages = null;
 
 
@@ -39,8 +39,8 @@ public class Trabajo implements Serializable{
 	public Integer getEndFrame() {
 		return endFrame;
 	}
-	public int getStatus(){ return this.status;	}
-	public void setStatus(int status){
+	public TrabajoStatus getStatus(){ return this.status;	}
+	public void setStatus(TrabajoStatus status){
 		this.status = status;
 	}
 	public byte[] getZipWithRenderedImages(){ return this.zipWithRenderedImages; }

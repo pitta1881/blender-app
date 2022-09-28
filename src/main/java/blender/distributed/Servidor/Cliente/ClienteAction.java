@@ -1,5 +1,7 @@
-package blender.distributed.Servidor;
+package blender.distributed.Servidor.Cliente;
 
+import blender.distributed.Servidor.ThreadServer;
+import blender.distributed.Servidor.Trabajo.Trabajo;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;

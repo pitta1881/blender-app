@@ -1,8 +1,8 @@
 package blender.distributed.Cliente;
 
-import blender.distributed.Servidor.IClientAction;
-import blender.distributed.Servidor.Trabajo;
-import blender.distributed.Worker.Tools.DirectoryTools;
+import blender.distributed.Servidor.Cliente.IClientAction;
+import blender.distributed.Servidor.Trabajo.Trabajo;
+import blender.distributed.SharedTools.DirectoryTools;
 import com.google.gson.Gson;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
