@@ -17,7 +17,7 @@ public class ClienteAction implements IClientAction {
 	Logger log = LoggerFactory.getLogger(ClienteAction.class);
 	ArrayList<Trabajo> listaTrabajos;
 
-	public ClienteAction(ArrayList<String> listaWorkers, ArrayList<Trabajo> listaTrabajos) {
+	public ClienteAction(ArrayList<Trabajo> listaTrabajos) {
 		this.listaTrabajos = listaTrabajos;
 		MDC.put("log.name", ClienteAction.class.getSimpleName());
 	}

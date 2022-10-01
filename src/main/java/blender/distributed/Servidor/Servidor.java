@@ -92,8 +92,8 @@ public class Servidor {
 		registrySv = LocateRegistry.createRegistry(this.rmiPortSv);
 
 		remoteFtpMan = (IFTPAction) UnicastRemoteObject.exportObject(new FTPAction(this.ftpPort, this.ftp),0);
-		remoteCliente = (IClientAction) UnicastRemoteObject.exportObject(new ClienteAction(this.listaWorkers, this.listaTrabajos),0);
-		remoteWorker = (IWorkerAction) UnicastRemoteObject.exportObject(new WorkerAction(this.listaWorkers, this.listaTrabajos, this.workersLastPing),0);
+		remoteCliente = (IClientAction) UnicastRemoteObject.exportObject(new ClienteAction(this.listaTrabajos),0);
+		remoteWorker = (IWorkerAction) UnicastRemoteObject.exportObject(new WorkerAction(this.listaWorkers, this.listaTrabajos, this.workersLastPing, this.serverDirectory),0);
 
 		registrySv.rebind("Acciones", remoteFtpMan);
 		registryCli.rebind("client", remoteCliente);

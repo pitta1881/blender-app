@@ -1,10 +1,12 @@
 package blender.distributed.Worker;
 
 import blender.distributed.Servidor.FTP.IFTPAction;
-import blender.distributed.Servidor.Worker.IWorkerAction;
+import blender.distributed.Servidor.Trabajo.PairTrabajoParte;
 import blender.distributed.Servidor.Trabajo.Trabajo;
-import blender.distributed.Worker.FTP.ClientFTP;
+import blender.distributed.Servidor.Trabajo.TrabajoPart;
+import blender.distributed.Servidor.Worker.IWorkerAction;
 import blender.distributed.SharedTools.DirectoryTools;
+import blender.distributed.Worker.FTP.ClientFTP;
 import com.google.gson.Gson;
 import net.lingala.zip4j.ZipFile;
 import net.lingala.zip4j.exception.ZipException;
@@ -35,7 +37,7 @@ public class Worker implements Runnable {
 	Logger log = LoggerFactory.getLogger(Worker.class);
 	String blenderPortableZip;
 	String workerDir = System.getProperty("user.dir") + "\\src\\main\\resources\\Worker\\";
-	String workerName = "worker1663802677984";//"worker"+System.currentTimeMillis();
+	String workerName = "worker"+System.currentTimeMillis(); //"worker1663802677985"; //"worker1663802677984";
 	String singleWorkerDir = workerDir+"\\"+workerName+"\\"; //"\\worker"+System.currentTimeMillis()+"\\";
 	String blenderExe;
 	String worksDir;
@@ -81,15 +83,22 @@ public class Worker implements Runnable {
 	}
 
 	private void getWork() {
+		PairTrabajoParte pairTP;
 		Trabajo trabajo = null;
+		TrabajoPart parte = null;
 		boolean salir = false;
 		DirectoryTools.checkOrCreateFolder(this.worksDir);
 		while (!salir) {
 			try {
-				while (trabajo == null) {
-					trabajo = this.stubServer.giveWorkToDo(localIp);
-					Thread.sleep(1000);
-				}
+				do {
+					pairTP = this.stubServer.giveWorkToDo();
+					if(pairTP != null) {
+						trabajo = pairTP.trabajo();
+						parte = pairTP.parte();
+					} else {
+						Thread.sleep(1000);
+					}
+				} while (pairTP == null);
 				File thisWorkDir = new File(this.worksDir + trabajo.getBlendName());
 				DirectoryTools.checkOrCreateFolder(thisWorkDir.getAbsolutePath());
 				File thisWorkRenderDir = new File(thisWorkDir + this.rendersDir);
@@ -97,8 +106,9 @@ public class Worker implements Runnable {
 				File thisWorkBlendDir = new File(thisWorkDir + this.blendDir);
 				DirectoryTools.checkOrCreateFolder(thisWorkBlendDir.getAbsolutePath());
 				log.info("Recibi un nuevo trabajo: " + trabajo.getBlendName());
+				log.info("Parte Nº: " + pairTP.parte().getNParte());
 				File blendFile = persistBlendFile(trabajo.getBlendFile(), thisWorkBlendDir.getAbsolutePath(), trabajo.getBlendName());
-				startRender(trabajo, thisWorkRenderDir.getAbsolutePath(), blendFile);
+				startRender(trabajo, parte, thisWorkRenderDir.getAbsolutePath(), blendFile);
 				DirectoryTools.deleteDirectory(thisWorkDir);
 				trabajo = null;
 				this.stubServer.checkStatus();
@@ -119,17 +129,17 @@ public class Worker implements Runnable {
 		return blend;
 	}
 
-	private void startRender(Trabajo work, String thisWorkRenderDir, File blendFile) {
+	private void startRender(Trabajo work, TrabajoPart parte, String thisWorkRenderDir, File blendFile) {
 		//Formato: blender -b file_name.blend -f 1 //blender -b file_name.blend -s 1 -e 100 -a
 		//First configure default settings to .blend
 		log.info("Pre-configurando el archivo .blend");
 		String cmd;
-		int totalFrames = work.getEndFrame() - work.getStartFrame();
+		int totalFrames = parte.getEndFrame() - parte.getStartFrame();
 		int threadsNedeed = 1;
 		CountDownLatch latch;
 		List<WorkerProcessThread> workerThreads = new ArrayList<>();
 		if(totalFrames == 0) {
-			cmd = " -b \"" + blendFile.getAbsolutePath() + "\" -o \"" + thisWorkRenderDir + "\\frame_#####\"" + " -f " + work.getStartFrame();
+			cmd = " -b \"" + blendFile.getAbsolutePath() + "\" -o \"" + thisWorkRenderDir + "\\frame_#####\"" + " -f " + parte.getStartFrame();
 			latch = new CountDownLatch(threadsNedeed);
 			File f = new File(this.blenderExe + cmd);//Normalize backslashs and slashs
 			System.out.println("CMD: " + f.getAbsolutePath());
@@ -142,10 +152,10 @@ public class Worker implements Runnable {
 			} else if (totalFrames >= 50) {
 				threadsNedeed = 2;
 			}
-			log.info("Cantidad de Frames a renderizar: " + totalFrames);
+			log.info("Cantidad de Frames a renderizar: " + (totalFrames + 1));
 			log.info("Cantidad de Threads a crear: " + threadsNedeed);
 			int rangeFrame = (int) Math.ceil((float)totalFrames / (float)threadsNedeed);
-			int startFrame = work.getStartFrame();
+			int startFrame = parte.getStartFrame();
 			int endFrame = startFrame + rangeFrame;
 			latch = new CountDownLatch(threadsNedeed);
 			for (int i = 0; i < threadsNedeed; i++) {
@@ -155,8 +165,8 @@ public class Worker implements Runnable {
 				workerThreads.add(new WorkerProcessThread(latch, f.getAbsolutePath()));
 				startFrame = endFrame + 1;
 				endFrame += rangeFrame;
-				if(endFrame > work.getEndFrame()){
-					endFrame = work.getEndFrame();
+				if(endFrame > parte.getEndFrame()){
+					endFrame = parte.getEndFrame();
 				}
 			}
 		}
@@ -170,15 +180,15 @@ public class Worker implements Runnable {
 			throw new RuntimeException(e);
 		}
 		try {
-			new ZipFile(thisWorkRenderDir + work.getBlendName()+".zip").addFolder(new File(thisWorkRenderDir));
+			new ZipFile(thisWorkRenderDir + work.getBlendName()+"__part__"+parte.getNParte()+".zip").addFolder(new File(thisWorkRenderDir));
 		} catch (ZipException e) {
 			throw new RuntimeException(e);
 		}
 		try {
-			File zipRenderedImages = new File(thisWorkRenderDir + work.getBlendName()+".zip");
+			File zipRenderedImages = new File(thisWorkRenderDir + work.getBlendName()+"__part__"+parte.getNParte()+".zip");
 			try {
 				byte[] zipWithRenderedImages = Files.readAllBytes(zipRenderedImages.toPath());
-				this.stubServer.setTrabajoStatusDone(work.getId(), zipWithRenderedImages);
+				this.stubServer.setTrabajoParteStatusDone(work.getId(), parte.getNParte(), zipWithRenderedImages);
 			} catch (IOException e) {
 				throw new RuntimeException(e);
 			}

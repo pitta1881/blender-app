@@ -28,7 +28,7 @@ public class ThreadServer implements Runnable {
 		log.info("Tiempo inicio:\t"+initTime.toString());
 		while(!salir) {
 			try {
-				if (work.getStatus() == TrabajoStatus.DONE) {
+				if (work.getStatus() == TrabajoStatus.DONE && work.getZipWithRenderedImages() != null) {
 					salir = true;
 				} else {
 					Thread.sleep(500);
