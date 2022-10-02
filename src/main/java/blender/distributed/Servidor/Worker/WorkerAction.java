@@ -6,7 +6,6 @@ import blender.distributed.Servidor.Trabajo.TrabajoPart;
 import blender.distributed.Servidor.Trabajo.TrabajoStatus;
 import blender.distributed.SharedTools.DirectoryTools;
 import net.lingala.zip4j.ZipFile;
-import net.lingala.zip4j.exception.ZipException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
@@ -23,11 +22,11 @@ import java.util.Map;
 public class WorkerAction implements IWorkerAction{
 	Logger log = LoggerFactory.getLogger(WorkerAction.class);
 	Map<String,LocalTime> workersLastPing;
-	ArrayList<String> listaWorkers;
+	Map<String, PairTrabajoParte> listaWorkers;
 	ArrayList<Trabajo> listaTrabajos;
 	String serverDirectory;
 
-	public WorkerAction(ArrayList<String> listaWorkers, ArrayList<Trabajo> listaTrabajos, Map<String, LocalTime> workersLastPing, String serverDirectory) {
+	public WorkerAction(Map<String, PairTrabajoParte> listaWorkers, ArrayList<Trabajo> listaTrabajos, Map<String, LocalTime> workersLastPing, String serverDirectory) {
 		MDC.put("log.name", WorkerAction.class.getSimpleName());
 		this.listaWorkers = listaWorkers;
 		this.listaTrabajos = listaTrabajos;
@@ -37,9 +36,9 @@ public class WorkerAction implements IWorkerAction{
 
 	@Override
 	public void helloServer(String workerName) throws RemoteException {
-		synchronized (listaTrabajos) {
-			if(!listaWorkers.contains(workerName)) {
-				this.listaWorkers.add(workerName);
+		synchronized (this.listaTrabajos) {
+			if(!this.listaWorkers.containsKey(workerName)) {
+				this.listaWorkers.put(workerName, null);
 				log.info("Registrando nuevo worker: "+workerName);
 			}
 		}
@@ -54,7 +53,7 @@ public class WorkerAction implements IWorkerAction{
 	}
 
 	@Override
-	public PairTrabajoParte giveWorkToDo() throws RemoteException {
+	public PairTrabajoParte giveWorkToDo(String workerName) throws RemoteException {
 		synchronized (listaTrabajos) {
 			if (listaTrabajos.size() == 0) {
 				return null;
@@ -68,12 +67,19 @@ public class WorkerAction implements IWorkerAction{
 				return null;
 			}
 			part.setStatus(TrabajoStatus.IN_PROGRESS);
-			return new PairTrabajoParte(work, part);
+			PairTrabajoParte ptp = new PairTrabajoParte(work, part);
+			synchronized (listaWorkers){
+				this.listaWorkers.put(workerName, ptp);
+			}
+			return ptp;
 		}
 	}
 
 	@Override
-	public void setTrabajoParteStatusDone(String trabajoId, int nParte, byte[] zipWithRenderedImages) throws RemoteException {
+	public void setTrabajoParteStatusDone(String workerName, String trabajoId, int nParte, byte[] zipWithRenderedImages) throws RemoteException {
+		synchronized (listaWorkers){
+			this.listaWorkers.put(workerName, null);
+		}
 		synchronized (listaTrabajos) {
 			Trabajo work = listaTrabajos.stream().filter(trabajo -> trabajoId.equals(trabajo.getId())).findFirst().orElse(null);
 			if (work != null) {
@@ -103,8 +109,6 @@ public class WorkerAction implements IWorkerAction{
 						work.setZipWithRenderedImages(finalZipWithRenderedImages);
 						File workDirFile = new File(thisWorkDir);
 						DirectoryTools.deleteDirectory(workDirFile);
-					} catch (ZipException e) {
-						throw new RuntimeException(e);
 					} catch (IOException e) {
 						throw new RuntimeException(e);
 					}

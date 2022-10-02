@@ -91,7 +91,7 @@ public class Worker implements Runnable {
 		while (!salir) {
 			try {
 				do {
-					pairTP = this.stubServer.giveWorkToDo();
+					pairTP = this.stubServer.giveWorkToDo(this.workerName);
 					if(pairTP != null) {
 						trabajo = pairTP.trabajo();
 						parte = pairTP.parte();
@@ -188,7 +188,7 @@ public class Worker implements Runnable {
 			File zipRenderedImages = new File(thisWorkRenderDir + work.getBlendName()+"__part__"+parte.getNParte()+".zip");
 			try {
 				byte[] zipWithRenderedImages = Files.readAllBytes(zipRenderedImages.toPath());
-				this.stubServer.setTrabajoParteStatusDone(work.getId(), parte.getNParte(), zipWithRenderedImages);
+				this.stubServer.setTrabajoParteStatusDone(this.workerName, work.getId(), parte.getNParte(), zipWithRenderedImages);
 			} catch (IOException e) {
 				throw new RuntimeException(e);
 			}

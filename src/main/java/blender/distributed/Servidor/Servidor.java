@@ -4,8 +4,10 @@ import blender.distributed.Servidor.Cliente.ClienteAction;
 import blender.distributed.Servidor.Cliente.IClientAction;
 import blender.distributed.Servidor.FTP.FTPAction;
 import blender.distributed.Servidor.FTP.IFTPAction;
-import blender.distributed.Servidor.Trabajo.Trabajo;
 import blender.distributed.Servidor.FTP.ServerFtp;
+import blender.distributed.Servidor.Trabajo.PairTrabajoParte;
+import blender.distributed.Servidor.Trabajo.Trabajo;
+import blender.distributed.Servidor.Trabajo.TrabajoStatus;
 import blender.distributed.Servidor.Worker.IWorkerAction;
 import blender.distributed.Servidor.Worker.WorkerAction;
 import com.google.gson.Gson;
@@ -34,7 +36,7 @@ public class Servidor {
 	String myFTPDirectory;
 	private String myIp;
 	private String backupIp;
-	private ArrayList<String> listaWorkers = new ArrayList<>();
+	private Map<String, PairTrabajoParte> listaWorkers = new HashMap<>();
 	private ArrayList<Trabajo> listaTrabajos = new ArrayList<>();
 	Map<String, LocalTime> workersLastPing = new HashMap<>();
 
@@ -62,15 +64,17 @@ public class Servidor {
 			runRMIServer();
 			while(true) {
 				try {
+					listaWorkers.forEach((workerName, parTrabajoParte) -> {
 					//Checkeo si se cayo un nodo
-					for(String str : listaWorkers) {
-						if((int) Duration.between(workersLastPing.get(str), LocalTime.now()).getSeconds() > 70) {
+						int differenceLastKnownPing = (int) Duration.between(workersLastPing.get(workerName), LocalTime.now()).getSeconds();
+						if(differenceLastKnownPing > 7) {
 							synchronized (listaWorkers) {
-								listaWorkers.remove(str);
-								log.error("Eliminando al nodo "+str+". Motivo time-out de "+(int)Duration.between(workersLastPing.get(str), LocalTime.now()).getSeconds()+" segundos.");
+								parTrabajoParte.parte().setStatus(TrabajoStatus.TO_DO);
+								listaWorkers.remove(workerName);
+								log.error("Eliminando al nodo " + workerName + ". Motivo time-out de " + differenceLastKnownPing + " segundos.");
 							}
 						}
-					}
+					});
 					try {
 						sleep(5000);
 					} catch (InterruptedException e) {

@@ -19,7 +19,7 @@ public class WorkerAliveThread implements Runnable{
 		while(true) {
 			try {
 				this.stubServer.helloServer(this.workerName);
-				Thread.sleep(60000);
+				Thread.sleep(5000);
 			} catch (RemoteException | InterruptedException e) {
 				break;
 			}
