@@ -48,11 +48,6 @@ public class WorkerAction implements IWorkerAction{
 	}
 
 	@Override
-	public void checkStatus() throws RemoteException {
-		
-	}
-
-	@Override
 	public PairTrabajoParte giveWorkToDo(String workerName) throws RemoteException {
 		synchronized (listaTrabajos) {
 			if (listaTrabajos.size() == 0) {

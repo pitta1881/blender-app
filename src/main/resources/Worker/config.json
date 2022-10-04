@@ -4,13 +4,6 @@
               	"port":"9001",
               	"ftp":"2121"
             },
-  "queue": {
-  			  "ip":"192.168.0.108",
-  			  "ipBak":"192.168.0.108",
-  			  "port":"5672",
-  			  "user":"admin",
-  			  "pass":"admin"
-  			  },
   "paths": {
   			  "blenderExe": "\\blender-3.2.2-windows-x64\\blender.exe",
 	          "worksDir": "\\Works\\",

@@ -50,18 +50,19 @@ public class Worker implements Runnable {
 	ClientFTP cliFtp;
 	int serverFTPPort;
 	//server
-	String serverIp;
+	String serverIpMain;
+	String serverIpBak;
 	int serverPort;
-	private boolean onBackupSv;
+	private boolean useBackupServer = false;
+	Thread threadAlive = null;
 
 
 	public void startWorker() {
-		//while(true) {
 		log.info("<-- [STEP 1] - LEYENDO ARCHIVO DE CONFIGURACION \t\t\t-->");
 		readConfigFile();
 		MDC.put("log.name", Worker.class.getSimpleName() + "-" + this.localIp);
 		log.info("<-- [STEP 2] - REALIZANDO CONEXION RMI \t\t\t-->");
-		getRMI();
+		connectRMI(useBackupServer ? serverIpBak : serverIpMain, serverPort);
 		log.info("<-- [STEP 3] - LANZANDO THREAD ALIVE \t\t\t-->");
 		lanzarThread();
 		//log.info("<-- [STEP 4] - REALIZANDO CONEXION CON RABBITMQ -->");
@@ -73,22 +74,23 @@ public class Worker implements Runnable {
 		} else {
 			log.debug("Error inesperado!");
 		}
-		//}
 	}
 
 	private void lanzarThread() {
+		if(this.threadAlive != null){
+			this.threadAlive.interrupt();
+		}
 		WorkerAliveThread alive = new WorkerAliveThread(this.stubServer, this.workerName);
-		Thread tAlive = new Thread(alive);
-		tAlive.start();
+		this.threadAlive = new Thread(alive);
+		this.threadAlive.start();
 	}
 
 	private void getWork() {
 		PairTrabajoParte pairTP;
 		Trabajo trabajo = null;
 		TrabajoPart parte = null;
-		boolean salir = false;
 		DirectoryTools.checkOrCreateFolder(this.worksDir);
-		while (!salir) {
+		while (true) {
 			try {
 				do {
 					pairTP = this.stubServer.giveWorkToDo(this.workerName);
@@ -110,10 +112,11 @@ public class Worker implements Runnable {
 				File blendFile = persistBlendFile(trabajo.getBlendFile(), thisWorkBlendDir.getAbsolutePath(), trabajo.getBlendName());
 				startRender(trabajo, parte, thisWorkRenderDir.getAbsolutePath(), blendFile);
 				DirectoryTools.deleteDirectory(thisWorkDir);
-				trabajo = null;
-				this.stubServer.checkStatus();
 			} catch (RemoteException | InterruptedException e) {
-				throw new RuntimeException(e);
+				log.error("Conexión perdida con el Servidor.");
+				connectRMI(useBackupServer ? serverIpBak : serverIpMain, serverPort);
+				lanzarThread();
+				getWork();
 			}
 		}
 	}
@@ -186,11 +189,17 @@ public class Worker implements Runnable {
 		}
 		try {
 			File zipRenderedImages = new File(thisWorkRenderDir + work.getBlendName()+"__part__"+parte.getNParte()+".zip");
-			try {
-				byte[] zipWithRenderedImages = Files.readAllBytes(zipRenderedImages.toPath());
-				this.stubServer.setTrabajoParteStatusDone(this.workerName, work.getId(), parte.getNParte(), zipWithRenderedImages);
-			} catch (IOException e) {
-				throw new RuntimeException(e);
+			byte[] zipWithRenderedImages = Files.readAllBytes(zipRenderedImages.toPath());
+			boolean zipSent = false;
+			while(!zipSent) {
+				try {
+					this.stubServer.setTrabajoParteStatusDone(this.workerName, work.getId(), parte.getNParte(), zipWithRenderedImages);
+					zipSent = true;
+				} catch (IOException e) {
+					log.error("Conexión perdida con el Servidor.");
+					connectRMI(useBackupServer ? serverIpBak : serverIpMain, serverPort);
+					lanzarThread();
+				}
 			}
 		} catch (Exception e) {
 			e.printStackTrace();
@@ -206,12 +215,12 @@ public class Worker implements Runnable {
 			ClientFTP cliFtp = null;
 			if (this.stubFtp.startFTPServer() > 0) {
 				log.info("El servidor FTP fue iniciado correctamente");
-				cliFtp = new ClientFTP(serverIp, serverFTPPort);
+				cliFtp = new ClientFTP(serverIpMain, serverFTPPort);
 			} else {
 				boolean recuperado = this.stubFtp.resumeFTPServer();
 				log.error("El servidor FTP ya estaba iniciado. Intentando establecer comunicacion: " + recuperado);
 				if (recuperado) {
-					cliFtp = new ClientFTP(serverIp, serverFTPPort);
+					cliFtp = new ClientFTP(serverIpMain, serverFTPPort);
 				}
 			}
 			return cliFtp;
@@ -222,42 +231,35 @@ public class Worker implements Runnable {
 		}
 	}
 
-	private void getRMI() {
+	private void connectRMI(String serverIp, int serverPort) {
 		try {
-			Registry clienteRMI = LocateRegistry.getRegistry(this.serverIp, serverPort);
+			Registry clienteRMI = LocateRegistry.getRegistry(serverIp, serverPort);
 			log.info("Obteniendo servicios RMI.");
 			log.info("Obteniendo stub...");
 			this.stubFtp = (IFTPAction) clienteRMI.lookup("Acciones");
 			this.stubServer = (IWorkerAction) clienteRMI.lookup("server");
 		} catch (RemoteException | NotBoundException e) {
-			log.error("RMI Error: " + e.getMessage());
-			if (this.onBackupSv) {
-				log.info("Re-intentando conectar al servidor principal: " + this.serverIp + ":" + this.serverPort);
-				for (int i = 3; i > 0; i--) {
-					try {
-						Thread.sleep(1000);
-						log.info("Re-intentando en..." + i);
-					} catch (InterruptedException e1) {
-						log.error(e1.getMessage());
-					}
-				}
-				readConfigFile();//Vuelvo a la config principal
-				this.onBackupSv = false;
-			} else {
-				log.info("Re-intentando conectar al servidor backup: " + this.serverIp + ":" + this.serverPort);
-				for (int i = 3; i > 0; i--) {
-					try {
-						Thread.sleep(1000);
-						log.info("Re-intentando en..." + i);
-					} catch (InterruptedException e1) {
-						log.error(e1.getMessage());
-					}
-				}
-				reconfigWorker();
-				this.onBackupSv = true;
-			}
-			getRMI();
+			manageServerFall(e.getMessage());
+			connectRMI(useBackupServer ? this.serverIpBak : this.serverIpMain, serverPort);
 		}
+	}
+
+	private void manageServerFall(String errorMessage){
+		log.error("RMI Error: " + errorMessage);
+		if (this.useBackupServer) {
+			log.info("Re-intentando conectar al servidor principal: " + this.serverIpMain + ":" + this.serverPort);
+		} else {
+			log.info("Re-intentando conectar al servidor backup: " + this.serverIpBak + ":" + this.serverPort);
+		}
+		for (int i = 3; i > 0; i--) {
+			try {
+				Thread.sleep(1000);
+				log.info("Re-intentando en..." + i);
+			} catch (InterruptedException e1) {
+				log.error(e1.getMessage());
+			}
+		}
+		this.useBackupServer = !this.useBackupServer;
 	}
 
 	/*
@@ -307,7 +309,8 @@ public class Worker implements Runnable {
 			config = gson.fromJson(new FileReader(this.workerDir + "config.json"), Map.class);
 
 			Map server = (Map) config.get("server");
-			this.serverIp = server.get("ip").toString();
+			this.serverIpMain = server.get("ip").toString();
+			this.serverIpBak = server.get("ipBak").toString();
 			this.serverPort = Integer.valueOf(server.get("port").toString());
 			this.serverFTPPort = Integer.valueOf(server.get("ftp").toString());
 
@@ -318,23 +321,8 @@ public class Worker implements Runnable {
 			this.rendersDir = paths.get("rendersDir").toString();
 			this.blenderPortableZip = paths.get("blenderPortableZip").toString();
 
-			this.onBackupSv = false;
 		} catch (IOException e) {
-			log.info("Error Archivo Config!");
-		}
-	}
-
-	private void reconfigWorker() {
-		Gson gson = new Gson();
-		Map config;
-		try {
-			config = gson.fromJson(new FileReader(this.workerDir + "config.json"), Map.class);
-			Map server = (Map) config.get("server");
-			this.serverIp = server.get("ipBak").toString();
-
-			this.onBackupSv = true;
-		} catch (IOException e) {
-			log.info("Error Archivo Config!");
+			log.error("Error Archivo Config!");
 		}
 	}
 

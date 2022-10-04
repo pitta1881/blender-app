@@ -22,15 +22,14 @@ import java.rmi.registry.Registry;
 import java.util.Map;
 
 public class Cliente{
-	private final int MAX_ATTEMPS = 3;
 	static Logger log = LoggerFactory.getLogger(Cliente.class);
-	IClientAction stub;
+	IClientAction stubServer;
 	File file;
 	byte[] fileContent;
-	private String serverIp;
+	private String serverIpMain;
 	private String serverIpBak;
 	private Integer serverPort;
-	private boolean onBackupSv = false;
+	private boolean useBackupServer = false;
 	String clienteDirectory = System.getProperty("user.dir")+"\\src\\main\\resources\\Cliente\\";
 	String myRenderedImages;
 
@@ -39,11 +38,10 @@ public class Cliente{
 		MDC.put("log.name", Cliente.class.getSimpleName());
 	}
 	
-	public void connectRMI(String serverIp, int serverPort, int attemps) {
-		Registry clienteRMI;
+	public void connectRMI(String serverIp, int serverPort) {
 		try {
-			clienteRMI = LocateRegistry.getRegistry(serverIp, serverPort);
-			this.stub = (IClientAction) clienteRMI.lookup("client");
+			Registry clienteRMI = LocateRegistry.getRegistry(serverIp, serverPort);
+			this.stubServer = (IClientAction) clienteRMI.lookup("client");
 			String myIp = "";
 			String myHostName = "";
 			try {
@@ -52,45 +50,13 @@ public class Cliente{
 			} catch (UnknownHostException e1) {
 				e1.printStackTrace();
 			}
-			String servResp = this.stub.helloServer(myIp, myHostName);
+			String servResp = this.stubServer.helloServer(myIp, myHostName);
 			if(!servResp.isEmpty()) {
 				log.info("Conectado al Servidor: " + serverIp + ":" + serverPort);
 			}
 		} catch (RemoteException | NotBoundException e) {
-			log.error("No se pudo conectar al servidor.Reintentando en 5 segundos");
-			if(attemps > this.MAX_ATTEMPS) {
-				if(!onBackupSv) {
-					try {
-						attemps = 0;
-						log.info("Parece que el servidor principal esta caído, intentando conectar con el de respaldo...");
-						Thread.sleep(2000);
-						log.info("Intentando reconectar...");
-						this.onBackupSv = true;
-						connectRMI(this.serverIpBak, serverPort, ++attemps);
-					} catch (InterruptedException e1) {
-						e1.printStackTrace();
-					}
-				}else {
-					try {
-						attemps = 0;
-						log.info("Parece que el servidor de respaldo esta caído, intentando conectar con el servidor principal...");
-						Thread.sleep(2000);
-						log.info("Intentando reconectar...");
-						this.onBackupSv = false;
-						connectRMI(this.serverIp, serverPort, ++attemps);
-					} catch (InterruptedException e1) {
-						e1.printStackTrace();
-					}
-				}
-			}else {
-				try {
-					Thread.sleep(2000);
-					log.info("Intentando reconectar...");
-					connectRMI(serverIp, serverPort, ++attemps);
-				} catch (InterruptedException e1) {
-					e1.printStackTrace();
-				}
-			}
+			manageServerFall(e.getMessage());
+			connectRMI(useBackupServer ? this.serverIpBak : this.serverIpMain, serverPort);
 		}
 	}
 	public void setFile(File f) {
@@ -102,12 +68,12 @@ public class Cliente{
 		}
 	}
 	public String enviarFile(int startFrame, int endFrame) {
-		connectRMI(serverIp, serverPort, 0);
+		connectRMI(useBackupServer ? this.serverIpBak : this.serverIpMain, serverPort);
 		if(this.file != null) {
 			log.info("Enviando el archivo: "+this.file.getName());
 			Trabajo work = new Trabajo(this.fileContent, file.getName(), startFrame, endFrame);
 			try {
-				byte[] zipReturnedBytes = this.stub.renderRequest(work);
+				byte[] zipReturnedBytes = this.stubServer.renderRequest(work);
 				if(zipReturnedBytes.length < 100) {
 					return "Ha ocurrido un error. Porfavor intentelo denuevo mas tarde";
 				}
@@ -121,18 +87,16 @@ public class Cliente{
 				}
 				return zipResult.getAbsolutePath();
 			} catch (RemoteException e) {
-				e.printStackTrace();
+				log.error("Error: " + e.getMessage());
+				return "Ha ocurrido un error con la conexión al servidor.";
 			}
 		}else {
 			log.error("Error: Archivo no cargado");
 			return "Error";
 		}
-		return "Error";
 	}
 	public boolean isReady() {
-		if(this.file != null && this.fileContent != null)
-			return true;
-		else return false;
+		return (this.file != null && this.fileContent != null);
 	}
 	
 	private void readConfigFile() {
@@ -140,16 +104,36 @@ public class Cliente{
 		Map config;
 		try {
 			config = gson.fromJson(new FileReader(this.clienteDirectory+"config.json"), Map.class);
+
 			Map server = (Map) config.get("server");
-			Map paths = (Map) config.get("paths");
-			this.serverIp = server.get("ip").toString();
+			this.serverIpMain = server.get("ip").toString();
 			this.serverIpBak = server.get("ipBak").toString();
 			this.serverPort = Integer.valueOf(server.get("port").toString());
+
+			Map paths = (Map) config.get("paths");
 			this.myRenderedImages = this.clienteDirectory + paths.get("renderedImages");
 
 		} catch (IOException e) {
-			log.info("Error Archivo Config!");
+			log.error("Error Archivo Config!");
 		} 
+	}
+
+	private void manageServerFall(String errorMessage){
+		log.error("RMI Error: " + errorMessage);
+		if (this.useBackupServer) {
+			log.info("Re-intentando conectar al servidor backup: " + this.serverIpBak + ":" + this.serverPort);
+		} else {
+			log.info("Re-intentando conectar al servidor principal: " + this.serverIpMain + ":" + this.serverPort);
+		}
+		for (int i = 3; i > 0; i--) {
+			try {
+				Thread.sleep(1000);
+				log.info("Re-intentando en..." + i);
+			} catch (InterruptedException e1) {
+				log.error(e1.getMessage());
+			}
+		}
+		this.useBackupServer = !this.useBackupServer;
 	}
 
 }
