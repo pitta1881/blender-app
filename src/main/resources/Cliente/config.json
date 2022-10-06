@@ -1,8 +1,7 @@
 {
-  "server": {	"ip":"192.168.56.1",
-  				"ipBak":"192.168.0.110",
-              	"port":"9000"
-            },
+  "gateway": {	"ip":"192.168.56.1",
+              	"port":"9100"
+  },
   "paths": {
     "renderedImages":"\\RenderedImages\\"
   }

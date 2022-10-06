@@ -1,6 +1,6 @@
 package blender.distributed.Cliente;
 
-import blender.distributed.Servidor.Cliente.IClientAction;
+import blender.distributed.Gateway.Servidor.IServidorClientAction;
 import blender.distributed.Servidor.Trabajo.Trabajo;
 import blender.distributed.SharedTools.DirectoryTools;
 import com.google.gson.Gson;
@@ -23,13 +23,11 @@ import java.util.Map;
 
 public class Cliente{
 	static Logger log = LoggerFactory.getLogger(Cliente.class);
-	IClientAction stubServer;
+	IServidorClientAction stubGateway;
 	File file;
 	byte[] fileContent;
-	private String serverIpMain;
-	private String serverIpBak;
-	private Integer serverPort;
-	private boolean useBackupServer = false;
+	private String gatewayIp;
+	private int gatewayPort;
 	String clienteDirectory = System.getProperty("user.dir")+"\\src\\main\\resources\\Cliente\\";
 	String myRenderedImages;
 
@@ -38,25 +36,23 @@ public class Cliente{
 		MDC.put("log.name", Cliente.class.getSimpleName());
 	}
 	
-	public void connectRMI(String serverIp, int serverPort) {
+	public void connectRMI() {
 		try {
-			Registry clienteRMI = LocateRegistry.getRegistry(serverIp, serverPort);
-			this.stubServer = (IClientAction) clienteRMI.lookup("client");
-			String myIp = "";
-			String myHostName = "";
+			Registry clienteRMI = LocateRegistry.getRegistry(this.gatewayIp, this.gatewayPort);
+			this.stubGateway = (IServidorClientAction) clienteRMI.lookup("clientAction");
 			try {
-				myIp = Inet4Address.getLocalHost().getHostAddress();
-				myHostName = Inet4Address.getLocalHost().getCanonicalHostName();
+				String myIp = Inet4Address.getLocalHost().getHostAddress();
+				String myHostName = Inet4Address.getLocalHost().getCanonicalHostName();
+				String gatewayResp = this.stubGateway.helloGateway();
+				if(!gatewayResp.isEmpty()) {
+					log.info("Conectado al Gateway: " + this.gatewayIp + ":" + this.gatewayPort);
+				}
 			} catch (UnknownHostException e1) {
 				e1.printStackTrace();
 			}
-			String servResp = this.stubServer.helloServer(myIp, myHostName);
-			if(!servResp.isEmpty()) {
-				log.info("Conectado al Servidor: " + serverIp + ":" + serverPort);
-			}
 		} catch (RemoteException | NotBoundException e) {
-			manageServerFall(e.getMessage());
-			connectRMI(useBackupServer ? this.serverIpBak : this.serverIpMain, serverPort);
+			manageServerFall();
+			connectRMI();
 		}
 	}
 	public void setFile(File f) {
@@ -68,14 +64,14 @@ public class Cliente{
 		}
 	}
 	public String enviarFile(int startFrame, int endFrame) {
-		connectRMI(useBackupServer ? this.serverIpBak : this.serverIpMain, serverPort);
+		connectRMI();
 		if(this.file != null) {
 			log.info("Enviando el archivo: "+this.file.getName());
 			Trabajo work = new Trabajo(this.fileContent, file.getName(), startFrame, endFrame);
 			try {
-				byte[] zipReturnedBytes = this.stubServer.renderRequest(work);
+				byte[] zipReturnedBytes = this.stubGateway.renderRequest(work);
 				if(zipReturnedBytes.length < 100) {
-					return "Ha ocurrido un error. Porfavor intentelo denuevo mas tarde";
+					return "Ha ocurrido un error. Por favor intentelo denuevo mas tarde";
 				}
 				DirectoryTools.checkOrCreateFolder(this.myRenderedImages);
 				File zipResult = new File(this.myRenderedImages + "\\"+file.getName()+".zip");
@@ -105,10 +101,9 @@ public class Cliente{
 		try {
 			config = gson.fromJson(new FileReader(this.clienteDirectory+"config.json"), Map.class);
 
-			Map server = (Map) config.get("server");
-			this.serverIpMain = server.get("ip").toString();
-			this.serverIpBak = server.get("ipBak").toString();
-			this.serverPort = Integer.valueOf(server.get("port").toString());
+			Map gateway = (Map) config.get("gateway");
+			this.gatewayIp = gateway.get("ip").toString();
+			this.gatewayPort = Integer.valueOf(gateway.get("port").toString());
 
 			Map paths = (Map) config.get("paths");
 			this.myRenderedImages = this.clienteDirectory + paths.get("renderedImages");
@@ -118,22 +113,14 @@ public class Cliente{
 		} 
 	}
 
-	private void manageServerFall(String errorMessage){
-		log.error("RMI Error: " + errorMessage);
-		if (this.useBackupServer) {
-			log.info("Re-intentando conectar al servidor backup: " + this.serverIpBak + ":" + this.serverPort);
-		} else {
-			log.info("Re-intentando conectar al servidor principal: " + this.serverIpMain + ":" + this.serverPort);
+	private void manageServerFall(){
+		log.error("Error al conectar con el Gateway " + this.gatewayIp + ":" + this.gatewayPort);
+		try {
+			log.info("Reintentando conectar...");
+			Thread.sleep(2000);
+		} catch (InterruptedException e) {
+			throw new RuntimeException(e);
 		}
-		for (int i = 3; i > 0; i--) {
-			try {
-				Thread.sleep(1000);
-				log.info("Re-intentando en..." + i);
-			} catch (InterruptedException e1) {
-				log.error(e1.getMessage());
-			}
-		}
-		this.useBackupServer = !this.useBackupServer;
 	}
 
 }

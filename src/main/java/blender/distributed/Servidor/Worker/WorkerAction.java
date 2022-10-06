@@ -35,7 +35,7 @@ public class WorkerAction implements IWorkerAction{
 	}
 
 	@Override
-	public void helloServer(String workerName) throws RemoteException {
+	public void pingAlive(String workerName) throws RemoteException {
 		synchronized (this.listaTrabajos) {
 			if(!this.listaWorkers.containsKey(workerName)) {
 				this.listaWorkers.put(workerName, null);

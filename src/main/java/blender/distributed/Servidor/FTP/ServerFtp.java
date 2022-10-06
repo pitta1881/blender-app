@@ -93,9 +93,7 @@ public class ServerFtp {
 		    });
 		    serverFactory.setFtplets(m);
 		    Map<String, Ftplet> mappa = serverFactory.getFtplets();
-		    System.out.println(mappa.size());
 		    System.out.println("Thread #" + Thread.currentThread().getId());
-		    System.out.println(mappa.toString());
 		    this.server = serverFactory.createServer();
 	}
 	public boolean startServer() {

@@ -1,10 +1,9 @@
 package blender.distributed.Worker;
 
-import blender.distributed.Servidor.FTP.IFTPAction;
+import blender.distributed.Gateway.Servidor.IServidorWorkerAction;
 import blender.distributed.Servidor.Trabajo.PairTrabajoParte;
 import blender.distributed.Servidor.Trabajo.Trabajo;
 import blender.distributed.Servidor.Trabajo.TrabajoPart;
-import blender.distributed.Servidor.Worker.IWorkerAction;
 import blender.distributed.SharedTools.DirectoryTools;
 import blender.distributed.Worker.FTP.ClientFTP;
 import com.google.gson.Gson;
@@ -37,32 +36,28 @@ public class Worker implements Runnable {
 	Logger log = LoggerFactory.getLogger(Worker.class);
 	String blenderPortableZip;
 	String workerDir = System.getProperty("user.dir") + "\\src\\main\\resources\\Worker\\";
-	String workerName = "worker"+System.currentTimeMillis(); //"worker1663802677985"; //"worker1663802677984";
+	String workerName = "worker"+System.currentTimeMillis(); //"worker1663802677984"; //"worker1663802677985";
 	String singleWorkerDir = workerDir+"\\"+workerName+"\\"; //"\\worker"+System.currentTimeMillis()+"\\";
 	String blenderExe;
 	String worksDir;
 	String blendDir;
 	String rendersDir;
 	String localIp;
-	IWorkerAction stubServer;
+	IServidorWorkerAction stubGateway;
 	//ftp
-	IFTPAction stubFtp;
 	ClientFTP cliFtp;
 	int serverFTPPort;
 	//server
-	String serverIpMain;
-	String serverIpBak;
-	int serverPort;
-	private boolean useBackupServer = false;
+	private String gatewayIp;
+	private int gatewayPort;
 	Thread threadAlive = null;
-
 
 	public void startWorker() {
 		log.info("<-- [STEP 1] - LEYENDO ARCHIVO DE CONFIGURACION \t\t\t-->");
 		readConfigFile();
 		MDC.put("log.name", Worker.class.getSimpleName() + "-" + this.localIp);
 		log.info("<-- [STEP 2] - REALIZANDO CONEXION RMI \t\t\t-->");
-		connectRMI(useBackupServer ? serverIpBak : serverIpMain, serverPort);
+		connectRMI();
 		log.info("<-- [STEP 3] - LANZANDO THREAD ALIVE \t\t\t-->");
 		lanzarThread();
 		//log.info("<-- [STEP 4] - REALIZANDO CONEXION CON RABBITMQ -->");
@@ -80,7 +75,7 @@ public class Worker implements Runnable {
 		if(this.threadAlive != null){
 			this.threadAlive.interrupt();
 		}
-		WorkerAliveThread alive = new WorkerAliveThread(this.stubServer, this.workerName);
+		WorkerAliveThread alive = new WorkerAliveThread(this.stubGateway, this.workerName);
 		this.threadAlive = new Thread(alive);
 		this.threadAlive.start();
 	}
@@ -93,7 +88,7 @@ public class Worker implements Runnable {
 		while (true) {
 			try {
 				do {
-					pairTP = this.stubServer.giveWorkToDo(this.workerName);
+					pairTP = this.stubGateway.giveWorkToDo(this.workerName);
 					if(pairTP != null) {
 						trabajo = pairTP.trabajo();
 						parte = pairTP.parte();
@@ -114,7 +109,7 @@ public class Worker implements Runnable {
 				DirectoryTools.deleteDirectory(thisWorkDir);
 			} catch (RemoteException | InterruptedException e) {
 				log.error("Conexión perdida con el Servidor.");
-				connectRMI(useBackupServer ? serverIpBak : serverIpMain, serverPort);
+				connectRMI();
 				lanzarThread();
 				getWork();
 			}
@@ -134,7 +129,6 @@ public class Worker implements Runnable {
 
 	private void startRender(Trabajo work, TrabajoPart parte, String thisWorkRenderDir, File blendFile) {
 		//Formato: blender -b file_name.blend -f 1 //blender -b file_name.blend -s 1 -e 100 -a
-		//First configure default settings to .blend
 		log.info("Pre-configurando el archivo .blend");
 		String cmd;
 		int totalFrames = parte.getEndFrame() - parte.getStartFrame();
@@ -193,11 +187,11 @@ public class Worker implements Runnable {
 			boolean zipSent = false;
 			while(!zipSent) {
 				try {
-					this.stubServer.setTrabajoParteStatusDone(this.workerName, work.getId(), parte.getNParte(), zipWithRenderedImages);
+					this.stubGateway.setTrabajoParteStatusDone(this.workerName, work.getId(), parte.getNParte(), zipWithRenderedImages);
 					zipSent = true;
 				} catch (IOException e) {
 					log.error("Conexión perdida con el Servidor.");
-					connectRMI(useBackupServer ? serverIpBak : serverIpMain, serverPort);
+					connectRMI();
 					lanzarThread();
 				}
 			}
@@ -211,16 +205,16 @@ public class Worker implements Runnable {
 	private ClientFTP connectFTP() {
 		try {
 			log.info("Iniciando servidor FTP.");
-			this.serverFTPPort = this.stubFtp.getFTPPort();
+			this.serverFTPPort = this.stubGateway.getFTPPort();
 			ClientFTP cliFtp = null;
-			if (this.stubFtp.startFTPServer() > 0) {
+			if (this.stubGateway.startFTPServer() > 0) {
 				log.info("El servidor FTP fue iniciado correctamente");
-				cliFtp = new ClientFTP(serverIpMain, serverFTPPort);
+				cliFtp = new ClientFTP(this.gatewayIp, serverFTPPort);
 			} else {
-				boolean recuperado = this.stubFtp.resumeFTPServer();
+				boolean recuperado = this.stubGateway.resumeFTPServer();
 				log.error("El servidor FTP ya estaba iniciado. Intentando establecer comunicacion: " + recuperado);
 				if (recuperado) {
-					cliFtp = new ClientFTP(serverIpMain, serverFTPPort);
+					cliFtp = new ClientFTP(this.gatewayIp, serverFTPPort);
 				}
 			}
 			return cliFtp;
@@ -231,35 +225,28 @@ public class Worker implements Runnable {
 		}
 	}
 
-	private void connectRMI(String serverIp, int serverPort) {
+	private void connectRMI() {
 		try {
-			Registry clienteRMI = LocateRegistry.getRegistry(serverIp, serverPort);
-			log.info("Obteniendo servicios RMI.");
-			log.info("Obteniendo stub...");
-			this.stubFtp = (IFTPAction) clienteRMI.lookup("Acciones");
-			this.stubServer = (IWorkerAction) clienteRMI.lookup("server");
+			Registry workerRMI = LocateRegistry.getRegistry(this.gatewayIp, this.gatewayPort);
+			this.stubGateway = (IServidorWorkerAction) workerRMI.lookup("workerAction");
+			String gatewayResp = this.stubGateway.helloGateway();
+			if(!gatewayResp.isEmpty()){
+				log.info("Conectado al Gateway: " + this.gatewayIp + ":" + this.gatewayPort);
+			}
 		} catch (RemoteException | NotBoundException e) {
-			manageServerFall(e.getMessage());
-			connectRMI(useBackupServer ? this.serverIpBak : this.serverIpMain, serverPort);
+			manageServerFall();
+			connectRMI();
 		}
 	}
 
-	private void manageServerFall(String errorMessage){
-		log.error("RMI Error: " + errorMessage);
-		if (this.useBackupServer) {
-			log.info("Re-intentando conectar al servidor principal: " + this.serverIpMain + ":" + this.serverPort);
-		} else {
-			log.info("Re-intentando conectar al servidor backup: " + this.serverIpBak + ":" + this.serverPort);
+	private void manageServerFall(){
+		log.error("Error al conectar con el Gateway " + this.gatewayIp + ":" + this.gatewayPort);
+		try {
+			log.info("Reintentando conectar...");
+			Thread.sleep(2000);
+		} catch (InterruptedException e) {
+			throw new RuntimeException(e);
 		}
-		for (int i = 3; i > 0; i--) {
-			try {
-				Thread.sleep(1000);
-				log.info("Re-intentando en..." + i);
-			} catch (InterruptedException e1) {
-				log.error(e1.getMessage());
-			}
-		}
-		this.useBackupServer = !this.useBackupServer;
 	}
 
 	/*
@@ -287,7 +274,7 @@ public class Worker implements Runnable {
 				log.info("Intentando descargar...Porfavor espere, este proceso podria tardar varios minutos...");
 				this.cliFtp.downloadSingleFile(this.cliFtp.getClient(), "\\" + this.blenderPortableZip, this.singleWorkerDir);
 				this.cliFtp.closeConn();
-				this.stubFtp.stopFTPServer();
+				this.stubGateway.stopFTPServer();
 				log.info("Comenzando a UnZipear Blender... Porfavor espere, este proceso podria tardar varios minutos...");
 				new ZipFile(this.singleWorkerDir + this.blenderPortableZip).extractAll(this.singleWorkerDir);
 				log.info("Unzip Blender terminado.");
@@ -308,11 +295,9 @@ public class Worker implements Runnable {
 			this.localIp = Inet4Address.getLocalHost().getHostAddress();
 			config = gson.fromJson(new FileReader(this.workerDir + "config.json"), Map.class);
 
-			Map server = (Map) config.get("server");
-			this.serverIpMain = server.get("ip").toString();
-			this.serverIpBak = server.get("ipBak").toString();
-			this.serverPort = Integer.valueOf(server.get("port").toString());
-			this.serverFTPPort = Integer.valueOf(server.get("ftp").toString());
+			Map gateway = (Map) config.get("gateway");
+			this.gatewayIp = gateway.get("ip").toString();
+			this.gatewayPort = Integer.valueOf(gateway.get("port").toString());
 
 			Map paths = (Map) config.get("paths");
 			this.blenderExe = this.singleWorkerDir + paths.get("blenderExe");
