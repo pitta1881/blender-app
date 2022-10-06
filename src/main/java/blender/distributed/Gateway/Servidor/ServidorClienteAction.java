@@ -32,16 +32,6 @@ public class ServidorClienteAction implements IServidorClientAction {
 	}
 
 	@Override
-	public String helloServer(String clientIp, String clienteHostName)  {
-		try {
-			return this.stubCliente.helloServer(clientIp, clienteHostName);
-		} catch (RemoteException | NullPointerException e) {
-			connectRMI(this.ip, initialPort);
-			return helloServer(clientIp, clienteHostName);
-		}
-	}
-
-	@Override
 	public byte[] renderRequest(Trabajo work) {
 		try {
 			return this.stubCliente.renderRequest(work);
@@ -56,8 +46,8 @@ public class ServidorClienteAction implements IServidorClientAction {
 		if(port == (this.initialPort+this.max_servers))
 			port = this.initialPort;
 		try {
-			Registry workerRMI = LocateRegistry.getRegistry(ip, port);
-			this.stubCliente = (IClientAction) workerRMI.lookup("clientAction");
+			Registry clienteRMI = LocateRegistry.getRegistry(ip, port);
+			this.stubCliente = (IClientAction) clienteRMI.lookup("clientAction");
 			log.info("Conectado al Servidor " + ip + ":" + port);
 		} catch (RemoteException | NotBoundException e) {
 			log.error("Error al conectar con el Servidor " + ip + ":" + port);

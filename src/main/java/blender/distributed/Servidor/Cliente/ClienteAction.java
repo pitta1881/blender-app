@@ -23,12 +23,6 @@ public class ClienteAction implements IClientAction {
 	}
 
 	@Override
-	public String helloServer(String clientIp, String myHostName) throws RemoteException {
-		log.info("Se conecto el cliente " + clientIp + " - " + myHostName);
-		return "OK";
-	}
-
-	@Override
 	public byte[] renderRequest(Trabajo work) throws RemoteException {
 		listaTrabajos.add(work);
 		CountDownLatch latch = new CountDownLatch(1);
