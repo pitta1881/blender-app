@@ -24,14 +24,14 @@ public class WorkerAction implements IWorkerAction{
 	Map<String,LocalTime> workersLastPing;
 	Map<String, PairTrabajoParte> listaWorkers;
 	ArrayList<Trabajo> listaTrabajos;
-	String serverDirectory;
+	String singleServerDir;
 
-	public WorkerAction(Map<String, PairTrabajoParte> listaWorkers, ArrayList<Trabajo> listaTrabajos, Map<String, LocalTime> workersLastPing, String serverDirectory) {
+	public WorkerAction(Map<String, PairTrabajoParte> listaWorkers, ArrayList<Trabajo> listaTrabajos, Map<String, LocalTime> workersLastPing, String singleServerDir) {
 		MDC.put("log.name", WorkerAction.class.getSimpleName());
 		this.listaWorkers = listaWorkers;
 		this.listaTrabajos = listaTrabajos;
 		this.workersLastPing = workersLastPing;
-		this.serverDirectory = serverDirectory;
+		this.singleServerDir = singleServerDir;
 	}
 
 	@Override
@@ -82,8 +82,8 @@ public class WorkerAction implements IWorkerAction{
 				parte.setStatus(TrabajoStatus.DONE);
 				parte.setZipWithRenderedImages(zipWithRenderedImages);
 				if(work.getStatus() == TrabajoStatus.DONE){
-					String workDir = this.serverDirectory + "\\Works\\";
-					String thisWorkDir = this.serverDirectory + "\\Works\\" + work.getBlendName() + "\\";
+					String workDir = this.singleServerDir + "\\Works\\";
+					String thisWorkDir = this.singleServerDir + "\\Works\\" + work.getBlendName() + "\\";
 					DirectoryTools.checkOrCreateFolder(workDir);
 					DirectoryTools.checkOrCreateFolder(thisWorkDir);
 

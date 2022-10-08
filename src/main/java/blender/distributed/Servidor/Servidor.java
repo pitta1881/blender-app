@@ -10,11 +10,13 @@ import blender.distributed.Servidor.Trabajo.Trabajo;
 import blender.distributed.Servidor.Trabajo.TrabajoStatus;
 import blender.distributed.Servidor.Worker.IWorkerAction;
 import blender.distributed.Servidor.Worker.WorkerAction;
+import blender.distributed.SharedTools.DirectoryTools;
 import com.google.gson.Gson;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
 
+import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
 import java.rmi.RemoteException;
@@ -33,6 +35,7 @@ public class Servidor {
 	//General settings
 	Logger log = LoggerFactory.getLogger(Servidor.class);
 	String serverDirectory = System.getProperty("user.dir")+"\\src\\main\\resources\\Servidor\\";
+	String singleServerDir;
 	String myFTPDirectory;
 	private String myIp;
 	private Map<String, PairTrabajoParte> listaWorkers = new HashMap<>();
@@ -87,13 +90,14 @@ public class Servidor {
 	private void runRMIServer(int rmiPortForClientes, int rmiPortForWorkers) {
 		try {
 			System.setProperty("sun.security.ssl.allowUnsafeRenegotiation", "true"); // renegotiation process is disabled by default.. Without this can't run two clients rmi on same machine like worker and client.
+			createSingleServerDir(rmiPortForWorkers);
 			log.info("Levantando servidor RMI en puertos " + rmiPortForClientes + "(Clientes) y " + rmiPortForWorkers + "(Workers)");
 			registryCli = LocateRegistry.createRegistry(rmiPortForClientes);
 			registrySv = LocateRegistry.createRegistry(rmiPortForWorkers);
 
 			remoteFtpMan = (IFTPAction) UnicastRemoteObject.exportObject(new FTPAction(this.ftpPort, this.ftp),0);
 			remoteCliente = (IClientAction) UnicastRemoteObject.exportObject(new ClienteAction(this.listaTrabajos),0);
-			remoteWorker = (IWorkerAction) UnicastRemoteObject.exportObject(new WorkerAction(this.listaWorkers, this.listaTrabajos, this.workersLastPing, this.serverDirectory),0);
+			remoteWorker = (IWorkerAction) UnicastRemoteObject.exportObject(new WorkerAction(this.listaWorkers, this.listaTrabajos, this.workersLastPing, this.singleServerDir),0);
 
 			registrySv.rebind("ftpAction", remoteFtpMan);
 			registryCli.rebind("clientAction", remoteCliente);
@@ -130,6 +134,13 @@ public class Servidor {
 	private void runFTPServer() {
 		this.ftp = new ServerFtp(this.ftpPort, this.myFTPDirectory);
 		log.info("FTP Configurado correctamente. Listo para usar en puerto:"+this.ftpPort+". Compartiendo carpeta: "+this.myFTPDirectory);
+	}
+
+	private void createSingleServerDir(int portWorkerUsed){
+		int serverNumber = portWorkerUsed - 9200;
+		File singleServerFileDir = new File(this.serverDirectory + "\\server9x0" + serverNumber);
+		this.singleServerDir = singleServerFileDir.getAbsolutePath();
+		DirectoryTools.checkOrCreateFolder(this.singleServerDir);
 	}
 
 	public static void main(String[] args) {
