@@ -1,18 +1,17 @@
-package blender.distributed.Servidor;
+package blender.distributed.Servidor.FTP;
 
-import blender.distributed.Servidor.helpers.ServerFtp;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.rmi.RemoteException;
 
-public class FTPManager implements IFTPManager{
-	Logger log = LoggerFactory.getLogger(FTPManager.class);
+public class FTPAction implements IFTPAction {
+	Logger log = LoggerFactory.getLogger(FTPAction.class);
 	//Ftp Related
 	private int ftpPort;
 	ServerFtp ftp;
 	
-	public FTPManager(int ftpPort, ServerFtp ftp) {
+	public FTPAction(int ftpPort, ServerFtp ftp) {
 		this.ftp = ftp;
 		this.ftpPort = ftpPort;
 	}

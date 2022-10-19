@@ -1,7 +1,6 @@
 {
   "server": {
-  			  "ip":"192.168.56.1",
-  			  "ipBak":"192.168.0.108"
+  			  "ip":"192.168.56.1"
   		},
   "queue": {
   			  "ip":"192.168.0.108",
@@ -11,8 +10,8 @@
   			  "pass":"admin"
   		},
   "rmi": {
-  			 "portCli":"9000",
-  			 "portSv":"9001"
+  			 "initialPortForClientes":"9101",
+  			 "initialPortForWorkers":"9201"
   		},
   "ftp":{
   			 "directory" : "\\FTP\\",

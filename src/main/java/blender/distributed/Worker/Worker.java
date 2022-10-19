@@ -1,10 +1,11 @@
 package blender.distributed.Worker;
 
-import blender.distributed.Servidor.IFTPManager;
-import blender.distributed.Servidor.IWorkerAction;
-import blender.distributed.Servidor.Trabajo;
-import blender.distributed.Worker.Tools.ClientFTP;
-import blender.distributed.Worker.Tools.DirectoryTools;
+import blender.distributed.Gateway.Servidor.IServidorWorkerAction;
+import blender.distributed.Servidor.Trabajo.PairTrabajoParte;
+import blender.distributed.Servidor.Trabajo.Trabajo;
+import blender.distributed.Servidor.Trabajo.TrabajoPart;
+import blender.distributed.SharedTools.DirectoryTools;
+import blender.distributed.Worker.FTP.ClientFTP;
 import com.google.gson.Gson;
 import net.lingala.zip4j.ZipFile;
 import net.lingala.zip4j.exception.ZipException;
@@ -12,14 +13,22 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
 
-import java.io.*;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.FileReader;
+import java.io.IOException;
 import java.net.Inet4Address;
 import java.nio.file.Files;
 import java.rmi.NotBoundException;
 import java.rmi.RemoteException;
 import java.rmi.registry.LocateRegistry;
 import java.rmi.registry.Registry;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Executor;
+import java.util.concurrent.Executors;
 
 
 public class Worker implements Runnable {
@@ -27,30 +36,28 @@ public class Worker implements Runnable {
 	Logger log = LoggerFactory.getLogger(Worker.class);
 	String blenderPortableZip;
 	String workerDir = System.getProperty("user.dir") + "\\src\\main\\resources\\Worker\\";
-	String singleWorkerDir = workerDir+"\\worker1663802677984\\"; //"\\worker"+System.currentTimeMillis()+"\\";
+	String workerName = "worker"+System.currentTimeMillis(); //"worker1663802677984"; //"worker1663802677985";
+	String singleWorkerDir = workerDir+"\\"+workerName+"\\"; //"\\worker"+System.currentTimeMillis()+"\\";
 	String blenderExe;
 	String worksDir;
 	String blendDir;
 	String rendersDir;
 	String localIp;
-	IWorkerAction stubServer;
+	IServidorWorkerAction stubGateway;
 	//ftp
-	IFTPManager stubFtp;
 	ClientFTP cliFtp;
 	int serverFTPPort;
 	//server
-	String serverIp;
-	int serverPort;
-	private boolean onBackupSv;
-
+	private String gatewayIp;
+	private int gatewayPort;
+	Thread threadAlive = null;
 
 	public void startWorker() {
-		//while(true) {
 		log.info("<-- [STEP 1] - LEYENDO ARCHIVO DE CONFIGURACION \t\t\t-->");
 		readConfigFile();
 		MDC.put("log.name", Worker.class.getSimpleName() + "-" + this.localIp);
 		log.info("<-- [STEP 2] - REALIZANDO CONEXION RMI \t\t\t-->");
-		getRMI();
+		connectRMI();
 		log.info("<-- [STEP 3] - LANZANDO THREAD ALIVE \t\t\t-->");
 		lanzarThread();
 		//log.info("<-- [STEP 4] - REALIZANDO CONEXION CON RABBITMQ -->");
@@ -62,26 +69,33 @@ public class Worker implements Runnable {
 		} else {
 			log.debug("Error inesperado!");
 		}
-		//}
 	}
 
 	private void lanzarThread() {
-		WorkerAliveThread alive = new WorkerAliveThread(this.stubServer, this.localIp);
-		Thread tAlive = new Thread(alive);
-		tAlive.start();
+		if(this.threadAlive != null){
+			this.threadAlive.interrupt();
+		}
+		WorkerAliveThread alive = new WorkerAliveThread(this.stubGateway, this.workerName);
+		this.threadAlive = new Thread(alive);
+		this.threadAlive.start();
 	}
 
 	private void getWork() {
+		PairTrabajoParte pairTP;
 		Trabajo trabajo = null;
-		boolean salir = false;
+		TrabajoPart parte = null;
 		DirectoryTools.checkOrCreateFolder(this.worksDir);
-		while (!salir) {
+		while (true) {
 			try {
-				while (trabajo == null) {
-					trabajo = this.stubServer.giveWorkToDo(localIp);
-					Thread.sleep(1000);
-				}
-				System.out.println(trabajo.getStatus());
+				do {
+					pairTP = this.stubGateway.giveWorkToDo(this.workerName);
+					if(pairTP != null) {
+						trabajo = pairTP.trabajo();
+						parte = pairTP.parte();
+					} else {
+						Thread.sleep(1000);
+					}
+				} while (pairTP == null);
 				File thisWorkDir = new File(this.worksDir + trabajo.getBlendName());
 				DirectoryTools.checkOrCreateFolder(thisWorkDir.getAbsolutePath());
 				File thisWorkRenderDir = new File(thisWorkDir + this.rendersDir);
@@ -89,13 +103,15 @@ public class Worker implements Runnable {
 				File thisWorkBlendDir = new File(thisWorkDir + this.blendDir);
 				DirectoryTools.checkOrCreateFolder(thisWorkBlendDir.getAbsolutePath());
 				log.info("Recibi un nuevo trabajo: " + trabajo.getBlendName());
+				log.info("Parte Nº: " + pairTP.parte().getNParte());
 				File blendFile = persistBlendFile(trabajo.getBlendFile(), thisWorkBlendDir.getAbsolutePath(), trabajo.getBlendName());
-				startRender(trabajo, thisWorkRenderDir.getAbsolutePath(), blendFile);
+				startRender(trabajo, parte, thisWorkRenderDir.getAbsolutePath(), blendFile);
 				DirectoryTools.deleteDirectory(thisWorkDir);
-				trabajo = null;
-				this.stubServer.checkStatus();
 			} catch (RemoteException | InterruptedException e) {
-				throw new RuntimeException(e);
+				log.error("Conexión perdida con el Servidor.");
+				connectRMI();
+				lanzarThread();
+				getWork();
 			}
 		}
 	}
@@ -111,32 +127,73 @@ public class Worker implements Runnable {
 		return blend;
 	}
 
-	private void startRender(Trabajo work, String thisWorkRenderDir, File blendFile) {
+	private void startRender(Trabajo work, TrabajoPart parte, String thisWorkRenderDir, File blendFile) {
 		//Formato: blender -b file_name.blend -f 1 //blender -b file_name.blend -s 1 -e 100 -a
-		//First configure default settings to .blend
 		log.info("Pre-configurando el archivo .blend");
 		String cmd;
-		if(work.getStartFrame() == work.getEndFrame()) {
-			cmd = " -b \"" + blendFile.getAbsolutePath() + "\" -o \"" + thisWorkRenderDir + "\\frame_#####\"" + " -f " + work.getStartFrame();
+		int totalFrames = parte.getEndFrame() - parte.getStartFrame();
+		int threadsNedeed = 1;
+		CountDownLatch latch;
+		List<WorkerProcessThread> workerThreads = new ArrayList<>();
+		if(totalFrames == 0) {
+			cmd = " -b \"" + blendFile.getAbsolutePath() + "\" -o \"" + thisWorkRenderDir + "\\frame_#####\"" + " -f " + parte.getStartFrame();
+			latch = new CountDownLatch(threadsNedeed);
+			File f = new File(this.blenderExe + cmd);//Normalize backslashs and slashs
+			System.out.println("CMD: " + f.getAbsolutePath());
+			workerThreads.add(new WorkerProcessThread(latch, f.getAbsolutePath()));
 		} else {
-			cmd = " -b \"" + blendFile.getAbsolutePath() + "\" -o \"" + thisWorkRenderDir + "\\frame_#####\"" + " -s " + work.getStartFrame() + " -e " + work.getEndFrame() + " -a";
+			if(totalFrames >= 300){
+				threadsNedeed = 8;
+			} else if (totalFrames >= 100) {
+				threadsNedeed = 4;
+			} else if (totalFrames >= 50) {
+				threadsNedeed = 2;
+			}
+			log.info("Cantidad de Frames a renderizar: " + (totalFrames + 1));
+			log.info("Cantidad de Threads a crear: " + threadsNedeed);
+			int rangeFrame = (int) Math.ceil((float)totalFrames / (float)threadsNedeed);
+			int startFrame = parte.getStartFrame();
+			int endFrame = startFrame + rangeFrame;
+			latch = new CountDownLatch(threadsNedeed);
+			for (int i = 0; i < threadsNedeed; i++) {
+				cmd = " -b \"" + blendFile.getAbsolutePath() + "\" -o \"" + thisWorkRenderDir + "\\frame_#####\"" + " -s " + startFrame + " -e " + endFrame + " -a";
+				File f = new File(this.blenderExe + cmd);//Normalize backslashs and slashs
+				log.info("CMD: " + f.getAbsolutePath());
+				workerThreads.add(new WorkerProcessThread(latch, f.getAbsolutePath()));
+				startFrame = endFrame + 1;
+				endFrame += rangeFrame;
+				if(endFrame > parte.getEndFrame()){
+					endFrame = parte.getEndFrame();
+				}
+			}
 		}
-		File f = new File(this.blenderExe + cmd);//Normalize backslashs and slashs
-
-		System.out.println("CMD: " + f.getAbsolutePath());
-		ejecutar(f.getAbsolutePath());
+		Executor executor = Executors.newFixedThreadPool(workerThreads.size());
+		for(final WorkerProcessThread wt : workerThreads) {
+			executor.execute(wt);
+		}
 		try {
-			new ZipFile(thisWorkRenderDir + work.getBlendName()+".zip").addFolder(new File(thisWorkRenderDir));
+			latch.await();
+		} catch (InterruptedException e) {
+			throw new RuntimeException(e);
+		}
+		try {
+			new ZipFile(thisWorkRenderDir + work.getBlendName()+"__part__"+parte.getNParte()+".zip").addFolder(new File(thisWorkRenderDir));
 		} catch (ZipException e) {
 			throw new RuntimeException(e);
 		}
 		try {
-			File zipRenderedImages = new File(thisWorkRenderDir + work.getBlendName()+".zip");
-			try {
-				byte[] zipWithRenderedImages = Files.readAllBytes(zipRenderedImages.toPath());
-				this.stubServer.setTrabajoStatusDone(work.getId(), zipWithRenderedImages);
-			} catch (IOException e) {
-				throw new RuntimeException(e);
+			File zipRenderedImages = new File(thisWorkRenderDir + work.getBlendName()+"__part__"+parte.getNParte()+".zip");
+			byte[] zipWithRenderedImages = Files.readAllBytes(zipRenderedImages.toPath());
+			boolean zipSent = false;
+			while(!zipSent) {
+				try {
+					this.stubGateway.setTrabajoParteStatusDone(this.workerName, work.getId(), parte.getNParte(), zipWithRenderedImages);
+					zipSent = true;
+				} catch (IOException e) {
+					log.error("Conexión perdida con el Servidor.");
+					connectRMI();
+					lanzarThread();
+				}
 			}
 		} catch (Exception e) {
 			e.printStackTrace();
@@ -148,16 +205,16 @@ public class Worker implements Runnable {
 	private ClientFTP connectFTP() {
 		try {
 			log.info("Iniciando servidor FTP.");
-			this.serverFTPPort = this.stubFtp.getFTPPort();
+			this.serverFTPPort = this.stubGateway.getFTPPort();
 			ClientFTP cliFtp = null;
-			if (this.stubFtp.startFTPServer() > 0) {
+			if (this.stubGateway.startFTPServer() > 0) {
 				log.info("El servidor FTP fue iniciado correctamente");
-				cliFtp = new ClientFTP(serverIp, serverFTPPort);
+				cliFtp = new ClientFTP(this.gatewayIp, serverFTPPort);
 			} else {
-				boolean recuperado = this.stubFtp.resumeFTPServer();
+				boolean recuperado = this.stubGateway.resumeFTPServer();
 				log.error("El servidor FTP ya estaba iniciado. Intentando establecer comunicacion: " + recuperado);
 				if (recuperado) {
-					cliFtp = new ClientFTP(serverIp, serverFTPPort);
+					cliFtp = new ClientFTP(this.gatewayIp, serverFTPPort);
 				}
 			}
 			return cliFtp;
@@ -168,43 +225,27 @@ public class Worker implements Runnable {
 		}
 	}
 
-	private void getRMI() {
+	private void connectRMI() {
 		try {
-			Registry clienteRMI = LocateRegistry.getRegistry(this.serverIp, serverPort);
-			log.info("Obteniendo servicios RMI.");
-			log.info("Obteniendo stub...");
-			this.stubFtp = (IFTPManager) clienteRMI.lookup("Acciones");
-			this.stubServer = (IWorkerAction) clienteRMI.lookup("server");
-			this.stubServer.helloServer(localIp);
-		} catch (RemoteException | NotBoundException e) {
-			log.error("RMI Error: " + e.getMessage());
-			if (this.onBackupSv) {
-				log.info("Re-intentando conectar al servidor principal: " + this.serverIp + ":" + this.serverPort);
-				for (int i = 5; i > 0; i--) {
-					try {
-						Thread.sleep(1000);
-						log.info("Re-intentando en..." + i);
-					} catch (InterruptedException e1) {
-						log.error(e1.getMessage());
-					}
-				}
-				readConfigFile();//Vuelvo a la config principal
-				this.onBackupSv = false;
-				getRMI();
-			} else {
-				log.info("Re-intentando conectar al servidor backup: " + this.serverIp + ":" + this.serverPort);
-				for (int i = 5; i > 0; i--) {
-					try {
-						Thread.sleep(1000);
-						log.info("Re-intentando en..." + i);
-					} catch (InterruptedException e1) {
-						log.error(e1.getMessage());
-					}
-				}
-				reconfigWorker();
-				this.onBackupSv = true;
-				getRMI();
+			Registry workerRMI = LocateRegistry.getRegistry(this.gatewayIp, this.gatewayPort);
+			this.stubGateway = (IServidorWorkerAction) workerRMI.lookup("workerAction");
+			String gatewayResp = this.stubGateway.helloGateway();
+			if(!gatewayResp.isEmpty()){
+				log.info("Conectado al Gateway: " + this.gatewayIp + ":" + this.gatewayPort);
 			}
+		} catch (RemoteException | NotBoundException e) {
+			manageServerFall();
+			connectRMI();
+		}
+	}
+
+	private void manageServerFall(){
+		log.error("Error al conectar con el Gateway " + this.gatewayIp + ":" + this.gatewayPort);
+		try {
+			log.info("Reintentando conectar...");
+			Thread.sleep(2000);
+		} catch (InterruptedException e) {
+			throw new RuntimeException(e);
 		}
 	}
 
@@ -233,7 +274,7 @@ public class Worker implements Runnable {
 				log.info("Intentando descargar...Porfavor espere, este proceso podria tardar varios minutos...");
 				this.cliFtp.downloadSingleFile(this.cliFtp.getClient(), "\\" + this.blenderPortableZip, this.singleWorkerDir);
 				this.cliFtp.closeConn();
-				this.stubFtp.stopFTPServer();
+				this.stubGateway.stopFTPServer();
 				log.info("Comenzando a UnZipear Blender... Porfavor espere, este proceso podria tardar varios minutos...");
 				new ZipFile(this.singleWorkerDir + this.blenderPortableZip).extractAll(this.singleWorkerDir);
 				log.info("Unzip Blender terminado.");
@@ -254,10 +295,9 @@ public class Worker implements Runnable {
 			this.localIp = Inet4Address.getLocalHost().getHostAddress();
 			config = gson.fromJson(new FileReader(this.workerDir + "config.json"), Map.class);
 
-			Map server = (Map) config.get("server");
-			this.serverIp = server.get("ip").toString();
-			this.serverPort = Integer.valueOf(server.get("port").toString());
-			this.serverFTPPort = Integer.valueOf(server.get("ftp").toString());
+			Map gateway = (Map) config.get("gateway");
+			this.gatewayIp = gateway.get("ip").toString();
+			this.gatewayPort = Integer.valueOf(gateway.get("port").toString());
 
 			Map paths = (Map) config.get("paths");
 			this.blenderExe = this.singleWorkerDir + paths.get("blenderExe");
@@ -266,23 +306,8 @@ public class Worker implements Runnable {
 			this.rendersDir = paths.get("rendersDir").toString();
 			this.blenderPortableZip = paths.get("blenderPortableZip").toString();
 
-			this.onBackupSv = false;
 		} catch (IOException e) {
-			log.info("Error Archivo Config!");
-		}
-	}
-
-	private void reconfigWorker() {
-		Gson gson = new Gson();
-		Map config;
-		try {
-			config = gson.fromJson(new FileReader(this.workerDir + "config.json"), Map.class);
-			Map server = (Map) config.get("server");
-			this.serverIp = server.get("ipBak").toString();
-
-			this.onBackupSv = true;
-		} catch (IOException e) {
-			log.info("Error Archivo Config!");
+			log.error("Error Archivo Config!");
 		}
 	}
 
@@ -296,25 +321,4 @@ public class Worker implements Runnable {
 		startWorker();
 	}
 
-	private void ejecutar(String cmd) {
-		try {
-			Process p = Runtime.getRuntime().exec(cmd);
-			BufferedReader input = new BufferedReader(new InputStreamReader(p.getInputStream()));
-			String line = "";
-			while (true) {
-				line = input.readLine();
-				if (line == null) break;
-				if (line.contains("| Rendered ")) {
-
-				} else {
-					System.out.println("Line: " + line);
-				}
-			}
-			p.waitFor();
-		} catch (IOException e) {
-			e.printStackTrace();
-		} catch (InterruptedException e) {
-			e.printStackTrace();
-		}
-	}
 }

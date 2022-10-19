@@ -1,27 +1,26 @@
 package blender.distributed.Worker;
 
-import blender.distributed.Servidor.IWorkerAction;
+import blender.distributed.Gateway.Servidor.IServidorWorkerAction;
 
 import java.rmi.RemoteException;
 
 public class WorkerAliveThread implements Runnable{
 
-	private IWorkerAction stubServer;
-	private String localIp;
+	private IServidorWorkerAction stubGateway;
+	private String workerName;
 	
-	public WorkerAliveThread(IWorkerAction stubServer, String localIp) {
-		this.stubServer = stubServer;
-		this.localIp = localIp;
+	public WorkerAliveThread(IServidorWorkerAction stubServer, String workerName) {
+		this.stubGateway = stubServer;
+		this.workerName = workerName;
 	}
 	
 	@Override
 	public void run() {
 		while(true) {
 			try {
-				this.stubServer.helloServer(this.localIp);
-				Thread.sleep(60000);
-			} catch (RemoteException | InterruptedException e) {
-				break;
+				Thread.sleep(5000);
+				this.stubGateway.pingAlive(this.workerName);
+			} catch (RemoteException | InterruptedException | NullPointerException e) {
 			}
 		}
 	}

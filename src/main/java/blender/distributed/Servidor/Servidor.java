@@ -1,14 +1,24 @@
 package blender.distributed.Servidor;
 
-import blender.distributed.Servidor.helpers.ServerFtp;
+import blender.distributed.Servidor.Cliente.ClienteAction;
+import blender.distributed.Servidor.Cliente.IClientAction;
+import blender.distributed.Servidor.FTP.FTPAction;
+import blender.distributed.Servidor.FTP.IFTPAction;
+import blender.distributed.Servidor.FTP.ServerFtp;
+import blender.distributed.Servidor.Trabajo.PairTrabajoParte;
+import blender.distributed.Servidor.Trabajo.Trabajo;
+import blender.distributed.Servidor.Trabajo.TrabajoStatus;
+import blender.distributed.Servidor.Worker.IWorkerAction;
+import blender.distributed.Servidor.Worker.WorkerAction;
+import blender.distributed.SharedTools.DirectoryTools;
 import com.google.gson.Gson;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
 
+import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
-import java.net.URL;
 import java.rmi.RemoteException;
 import java.rmi.registry.LocateRegistry;
 import java.rmi.registry.Registry;
@@ -25,22 +35,20 @@ public class Servidor {
 	//General settings
 	Logger log = LoggerFactory.getLogger(Servidor.class);
 	String serverDirectory = System.getProperty("user.dir")+"\\src\\main\\resources\\Servidor\\";
-	URL serverConfigFile = this.getClass().getClassLoader().getResource("Servidor\\config.json");
+	String singleServerDir;
 	String myFTPDirectory;
 	private String myIp;
-	private String backupIp;
-	final Integer inicialWorkers = 3;
-	private ArrayList<String> listaWorkers = new ArrayList<String>();
-	private ArrayList<Trabajo> listaTrabajos = new ArrayList<Trabajo>();
-	Map<String, LocalTime> workersLastPing = new HashMap<String,LocalTime>();
+	private Map<String, PairTrabajoParte> listaWorkers = new HashMap<>();
+	private ArrayList<Trabajo> listaTrabajos = new ArrayList<>();
+	Map<String, LocalTime> workersLastPing = new HashMap<>();
 
 	//RMI
-	private int rmiPortCli;
-	private int rmiPortSv;
+	private int rmiPortForClientes;
+	private int rmiPortForWorkers;
 	Registry registryCli;
 	Registry registrySv;
 	private IClientAction remoteCliente;
-	private IFTPManager remoteFtpMan;
+	private IFTPAction remoteFtpMan;
 	private IWorkerAction remoteWorker;
 
 
@@ -51,85 +59,88 @@ public class Servidor {
 
 	
 	public Servidor() {
-		MDC.put("log.name", this.getClass().getSimpleName().toString());
+		MDC.put("log.name", this.getClass().getSimpleName());
 		readConfigFile();
-		initialConfig();
-		try {
-			runRMIServer();
-			/*
-			for (int i = 0; i < 1; i++) {
-				Worker workerProcess = new Worker();
-				new Thread(workerProcess).start();
-				sleep(2000);	//esto xq sino se vuelve loco el ftp connection
-			}*/
-			while(true) {
-				try {
-					//Checkeo si se cayo un nodo
-					for(String str : listaWorkers) {
-						if((int) Duration.between(workersLastPing.get(str), LocalTime.now()).getSeconds() > 70) {
-							synchronized (listaWorkers) {
-								listaWorkers.remove(str);
-								log.error("Eliminando al nodo "+str+". Motivo time-out de "+(int)Duration.between(workersLastPing.get(str), LocalTime.now()).getSeconds()+" segundos.");
-							}
+		runFTPServer();
+		runRMIServer(this.rmiPortForClientes, this.rmiPortForWorkers);
+		while(true) {
+			try {
+				listaWorkers.forEach((workerName, parTrabajoParte) -> {
+				//Checkeo si se cayo un nodo
+					int differenceLastKnownPing = (int) Duration.between(workersLastPing.get(workerName), LocalTime.now()).getSeconds();
+					if(differenceLastKnownPing > 7) {
+						synchronized (listaWorkers) {
+							parTrabajoParte.parte().setStatus(TrabajoStatus.TO_DO);
+							listaWorkers.remove(workerName);
+							log.error("Eliminando al nodo " + workerName + ". Motivo time-out de " + differenceLastKnownPing + " segundos.");
 						}
 					}
-					try {
-						sleep(5000);
-					} catch (InterruptedException e) {
-						e.printStackTrace();
-					}
-				}catch(Exception e){
-
+				});
+				try {
+					sleep(5000);
+				} catch (InterruptedException e) {
+					e.printStackTrace();
 				}
+			}catch(Exception e){
+
 			}
-		} catch (RemoteException e) {
-			e.printStackTrace();
 		}
 	}
 
-	private void runRMIServer() throws RemoteException {
-		System.setProperty("sun.security.ssl.allowUnsafeRenegotiation", "true"); // renegotiation process is disabled by default.. Without this can't run two clients rmi on same machine like worker and client.
-		log.info("Levantando servidor RMI...");
-		registryCli = LocateRegistry.createRegistry(this.rmiPortCli);
-		registrySv = LocateRegistry.createRegistry(this.rmiPortSv);
+	private void runRMIServer(int rmiPortForClientes, int rmiPortForWorkers) {
+		try {
+			System.setProperty("sun.security.ssl.allowUnsafeRenegotiation", "true"); // renegotiation process is disabled by default.. Without this can't run two clients rmi on same machine like worker and client.
+			createSingleServerDir(rmiPortForWorkers);
+			log.info("Levantando servidor RMI en puertos " + rmiPortForClientes + "(Clientes) y " + rmiPortForWorkers + "(Workers)");
+			registryCli = LocateRegistry.createRegistry(rmiPortForClientes);
+			registrySv = LocateRegistry.createRegistry(rmiPortForWorkers);
 
-		remoteFtpMan = (IFTPManager) UnicastRemoteObject.exportObject(new FTPManager(this.ftpPort, this.ftp),0);
-		remoteCliente = (IClientAction) UnicastRemoteObject.exportObject(new ClienteAction(this.listaTrabajos),0);
-		remoteWorker = (IWorkerAction) UnicastRemoteObject.exportObject(new WorkerAction(this.listaWorkers, this.listaTrabajos, this.workersLastPing),0);
+			remoteFtpMan = (IFTPAction) UnicastRemoteObject.exportObject(new FTPAction(this.ftpPort, this.ftp),0);
+			remoteCliente = (IClientAction) UnicastRemoteObject.exportObject(new ClienteAction(this.listaTrabajos),0);
+			remoteWorker = (IWorkerAction) UnicastRemoteObject.exportObject(new WorkerAction(this.listaWorkers, this.listaTrabajos, this.workersLastPing, this.singleServerDir),0);
 
-		registrySv.rebind("Acciones", remoteFtpMan);
-		registryCli.rebind("client", remoteCliente);
-		registrySv.rebind("server", remoteWorker);
-		log.info("Servidor RMI{");
-		log.info("\t Client:"+registryCli.toString());
-		log.info("\t Server:"+registrySv.toString()+"\n\t\t\t}");
+			registrySv.rebind("ftpAction", remoteFtpMan);
+			registryCli.rebind("clientAction", remoteCliente);
+			registrySv.rebind("workerAction", remoteWorker);
+			log.info("Servidor RMI:");
+			log.info("\t -> Para Clientes: " + registryCli.toString());
+			log.info("\t -> Para Workers: " + registrySv.toString());
+		} catch (RemoteException e) {
+			log.error("Error: Puertos " + rmiPortForClientes + "(Clientes) y " + rmiPortForWorkers + "(Workers) en uso.");
+			runRMIServer(++rmiPortForClientes, ++rmiPortForWorkers);
+		}
 	}
 	
 	private void readConfigFile() {
 		Gson gson = new Gson();
 		Map config;
 		try {
-			config = gson.fromJson(new FileReader(serverDirectory+"config.json"), Map.class);
+			config = gson.fromJson(new FileReader(this.serverDirectory+"config.json"), Map.class);
 			
-			Map data = (Map) config.get("server");
-			this.myIp = data.get("ip").toString();
-			this.backupIp =  data.get("ipBak").toString();
+			Map server = (Map) config.get("server");
+			this.myIp = server.get("ip").toString();
 
-			data = (Map) config.get("rmi");
-			this.rmiPortCli = Integer.valueOf(data.get("portCli").toString());
-			this.rmiPortSv = Integer.valueOf(data.get("portSv").toString());
+			Map rmi = (Map) config.get("rmi");
+			this.rmiPortForClientes = Integer.valueOf(rmi.get("initialPortForClientes").toString());
+			this.rmiPortForWorkers = Integer.valueOf(rmi.get("initialPortForWorkers").toString());
 
-			data = (Map) config.get("ftp");
-			this.ftpPort = Integer.valueOf(data.get("port").toString());
-			this.myFTPDirectory = this.serverDirectory + data.get("directory").toString();
+			Map ftp = (Map) config.get("ftp");
+			this.ftpPort = Integer.valueOf(ftp.get("port").toString());
+			this.myFTPDirectory = this.serverDirectory + ftp.get("directory").toString();
 		} catch (IOException e) {
 		}
 	}
 
-	private void initialConfig() {
-		//FTP RELATED
+	private void runFTPServer() {
 		this.ftp = new ServerFtp(this.ftpPort, this.myFTPDirectory);
 		log.info("FTP Configurado correctamente. Listo para usar en puerto:"+this.ftpPort+". Compartiendo carpeta: "+this.myFTPDirectory);
+	}
+
+	private void createSingleServerDir(int portWorkerUsed){
+		int serverNumber = portWorkerUsed - 9200;
+		File singleServerFileDir = new File(this.serverDirectory + "\\server9x0" + serverNumber);
+		this.singleServerDir = singleServerFileDir.getAbsolutePath();
+		DirectoryTools.checkOrCreateFolder(this.singleServerDir);
 	}
 
 	public static void main(String[] args) {

@@ -8,7 +8,6 @@ import javax.swing.filechooser.FileNameExtensionFilter;
 import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
-import java.io.File;
 
 import static java.lang.Integer.valueOf;
 /**/
@@ -18,11 +17,13 @@ import static java.lang.Integer.valueOf;
 
 public class GUICliente extends JPanel implements ActionListener  {
   private JButton btnChooser;
-  private JButton btnStart;
-  private JTextField startFrame;
+  private JLabel labelFileName;
+  private JTextField fileName;
   private JLabel labelStartFrame;
+  private JTextField startFrame;
+  private JLabel labelDash;
   private JTextField endFrame;
-  private JLabel labelEndFrame;
+  private JButton btnStart;
   private JFileChooser fc;
   JFrame frame;
   Controller controlador;
@@ -30,7 +31,8 @@ public class GUICliente extends JPanel implements ActionListener  {
 	public GUICliente(Controller controlador){
 		this.controlador = controlador;
 		frame = new JFrame ("Renderizado distribuido");
-	    frame.setDefaultCloseOperation (JFrame.EXIT_ON_CLOSE);
+		frame.setResizable(false);
+		frame.setDefaultCloseOperation (JFrame.EXIT_ON_CLOSE);
         Dimension dimension = Toolkit.getDefaultToolkit().getScreenSize();
         int x = (int) ((dimension.getWidth() - frame.getWidth())/5);
         int y = (int) ((dimension.getHeight() - frame.getHeight())/5);
@@ -40,32 +42,39 @@ public class GUICliente extends JPanel implements ActionListener  {
 	      //construct components
 	      btnChooser = new JButton ("Cargar Archivo");
 	      btnChooser.addActionListener(this);
+		  labelFileName = new JLabel ("Nombre Archivo:");
+	      fileName =  new JFormattedTextField("");
+		  fileName.setEnabled(false);
+	      labelStartFrame = new JLabel ("Frames (Inicial-Final):");
+		  startFrame =  new JFormattedTextField(valueOf(1));
+	      labelDash = new JLabel ("-");
+	      endFrame =  new JFormattedTextField(valueOf(100));
 	      btnStart = new JButton ("Empezar a renderizar");
 	      btnStart.addActionListener(this);
 	      btnStart.setEnabled(false);
-	      startFrame =  new JFormattedTextField(valueOf(1));
-	      labelStartFrame = new JLabel ("Frame Inicial:");
-	      endFrame =  new JFormattedTextField(valueOf(100));
-	      labelEndFrame = new JLabel ("Frame Final:");
 
 	      //adjust size and set layout
-	      setPreferredSize (new Dimension (372, 266));
+	      setPreferredSize (new Dimension (400, 170));
 	      setLayout (null);
 	      //add components
 	      add (btnChooser);
-	      add (btnStart);
-	      add (startFrame);
+		  add (labelFileName);
+		  add (fileName);
 	      add (labelStartFrame);
+	      add (startFrame);
+	      add (labelDash);
 	      add (endFrame);
-	      add (labelEndFrame);
+	      add (btnStart);
 	      //set component bounds (only needed by Absolute Positioning)
-	      btnChooser.setBounds (15, 10, 180, 40);
-	      btnStart.setBounds (15, 220, 170, 40);
-	      startFrame.setBounds (195, 120, 170, 25);
-	      labelStartFrame.setBounds (15, 120, 170, 25);
-	      endFrame.setBounds (195, 155, 170, 25);
-	      labelEndFrame.setBounds (15, 155, 180, 25);
-        
+	      btnChooser.setBounds (15, 10, 370, 30);
+		  labelFileName.setBounds(15,50,170,30);
+		  fileName.setBounds(150,50,235,30);
+	      labelStartFrame.setBounds (15, 90, 170, 30);
+	      startFrame.setBounds (150, 90, 70, 30);
+		  labelDash.setBounds (230, 90, 10, 30);
+	      endFrame.setBounds (250, 90, 70, 30);
+	      btnStart.setBounds (15, 130, 370, 30);
+
 	      frame.getContentPane().add(this);
 	      frame.pack();
 	      frame.setVisible (true);
@@ -77,9 +86,9 @@ public class GUICliente extends JPanel implements ActionListener  {
 			fc = new JFileChooser();
 			FileFilter filter = new FileNameExtensionFilter("Blender File","blend");
 			this.fc.setFileFilter(filter);
-			this.fc.setCurrentDirectory(new File("./proyectos/"));
 			int returnVal = this.fc.showOpenDialog(null);
 	        if (returnVal == JFileChooser.APPROVE_OPTION) {
+				this.fileName.setText(fc.getSelectedFile().getName());
 	        	this.controlador.setFile(fc.getSelectedFile());
 	        }
 		 }
@@ -87,23 +96,21 @@ public class GUICliente extends JPanel implements ActionListener  {
 			 int startFrame = valueOf(this.startFrame.getText().replace(".", ""));
 			 int endFrame = valueOf(this.endFrame.getText().replace(".", ""));
 			
-			 if(startFrame > 0) {
-				 if(startFrame > endFrame) {
-					 JOptionPane.showMessageDialog(null, "ERROR: El frame inicial no puede ser mayor al frame final.");
-				 }else {
-					 this.frame.setTitle("Procesando...");
-					 String str = this.controlador.enviarFile(startFrame,endFrame);
-					 this.frame.setTitle("Renderizado Distribuido");
-					 JOptionPane.showMessageDialog(null,"Guardado en:\n"+str);
-				 }
-			 }else {
+			 if(startFrame <= 0) {
 				 JOptionPane.showMessageDialog(null, "ERROR: El frame inicial debe ser mayor a 0.");
+			 } else if (startFrame > endFrame) {
+					 JOptionPane.showMessageDialog(null, "ERROR: El frame inicial no puede ser mayor al frame final.");
+			 } else {
+				 this.frame.setTitle("Procesando...");
+				 String pathOrError = this.controlador.enviarFile(startFrame, endFrame);
+				 this.frame.setTitle("Renderizado Distribuido");
+				 if(pathOrError.toLowerCase().contains("error")){
+					 JOptionPane.showMessageDialog(null, pathOrError, "Error!", JOptionPane.ERROR_MESSAGE);
+				 } else {
+				 	JOptionPane.showMessageDialog(null, "Guardado en:\n" + pathOrError, "Exito!", JOptionPane.INFORMATION_MESSAGE);
+				 }
 			 }
 		 }
-		 if(this.controlador.isReady())
-			 this.btnStart.setEnabled(true);
-		 else
-			 this.btnStart.setEnabled(false);
-		       
+		 this.btnStart.setEnabled(this.controlador.isReady());
 	 }
 }

@@ -1,8 +1,8 @@
 package blender.distributed.Cliente;
 
-import blender.distributed.Servidor.IClientAction;
-import blender.distributed.Servidor.Trabajo;
-import blender.distributed.Worker.Tools.DirectoryTools;
+import blender.distributed.Gateway.Servidor.IServidorClientAction;
+import blender.distributed.Servidor.Trabajo.Trabajo;
+import blender.distributed.SharedTools.DirectoryTools;
 import com.google.gson.Gson;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -22,15 +22,12 @@ import java.rmi.registry.Registry;
 import java.util.Map;
 
 public class Cliente{
-	private final int MAX_ATTEMPS = 3;
 	static Logger log = LoggerFactory.getLogger(Cliente.class);
-	IClientAction stub;
+	IServidorClientAction stubGateway;
 	File file;
 	byte[] fileContent;
-	private String serverIp;
-	private String serverIpBak;
-	private Integer serverPort;
-	private boolean onBackupSv = false;
+	private String gatewayIp;
+	private int gatewayPort;
 	String clienteDirectory = System.getProperty("user.dir")+"\\src\\main\\resources\\Cliente\\";
 	String myRenderedImages;
 
@@ -39,58 +36,23 @@ public class Cliente{
 		MDC.put("log.name", Cliente.class.getSimpleName());
 	}
 	
-	public void connectRMI(String serverIp, int serverPort, int attemps) {
-		Registry clienteRMI;
+	public void connectRMI() {
 		try {
-			clienteRMI = LocateRegistry.getRegistry(serverIp, serverPort);
-			this.stub = (IClientAction) clienteRMI.lookup("client");
-			String myIp = "";
-			String myHostName = "";
+			Registry clienteRMI = LocateRegistry.getRegistry(this.gatewayIp, this.gatewayPort);
+			this.stubGateway = (IServidorClientAction) clienteRMI.lookup("clientAction");
 			try {
-				myIp = Inet4Address.getLocalHost().getHostAddress();
-				myHostName = Inet4Address.getLocalHost().getCanonicalHostName();
+				String myIp = Inet4Address.getLocalHost().getHostAddress();
+				String myHostName = Inet4Address.getLocalHost().getCanonicalHostName();
+				String gatewayResp = this.stubGateway.helloGateway();
+				if(!gatewayResp.isEmpty()) {
+					log.info("Conectado al Gateway: " + this.gatewayIp + ":" + this.gatewayPort);
+				}
 			} catch (UnknownHostException e1) {
 				e1.printStackTrace();
 			}
-			String servResp = this.stub.helloServer(myIp, myHostName);
-			if(!servResp.isEmpty()) {
-				log.info("Conectado al Servidor: " + serverIp + ":" + serverPort);
-			}
 		} catch (RemoteException | NotBoundException e) {
-			log.error("No se pudo conectar al servidor.Reintentando en 5 segundos");
-			if(attemps > this.MAX_ATTEMPS) {
-				if(!onBackupSv) {
-					try {
-						attemps = 0;
-						log.info("Parece que el servidor principal esta caído, intentando conectar con el de respaldo...");
-						Thread.sleep(2000);
-						log.info("Intentando reconectar...");
-						this.onBackupSv = true;
-						connectRMI(this.serverIpBak, serverPort, ++attemps);
-					} catch (InterruptedException e1) {
-						e1.printStackTrace();
-					}
-				}else {
-					try {
-						attemps = 0;
-						log.info("Parece que el servidor de respaldo esta caído, intentando conectar con el servidor principal...");
-						Thread.sleep(2000);
-						log.info("Intentando reconectar...");
-						this.onBackupSv = false;
-						connectRMI(this.serverIp, serverPort, ++attemps);
-					} catch (InterruptedException e1) {
-						e1.printStackTrace();
-					}
-				}
-			}else {
-				try {
-					Thread.sleep(2000);
-					log.info("Intentando reconectar...");
-					connectRMI(serverIp, serverPort, ++attemps);
-				} catch (InterruptedException e1) {
-					e1.printStackTrace();
-				}
-			}
+			manageServerFall();
+			connectRMI();
 		}
 	}
 	public void setFile(File f) {
@@ -102,14 +64,14 @@ public class Cliente{
 		}
 	}
 	public String enviarFile(int startFrame, int endFrame) {
-		connectRMI(serverIp, serverPort, 0);
+		connectRMI();
 		if(this.file != null) {
 			log.info("Enviando el archivo: "+this.file.getName());
 			Trabajo work = new Trabajo(this.fileContent, file.getName(), startFrame, endFrame);
 			try {
-				byte[] zipReturnedBytes = this.stub.renderRequest(work);
+				byte[] zipReturnedBytes = this.stubGateway.renderRequest(work);
 				if(zipReturnedBytes.length < 100) {
-					return "Ha ocurrido un error. Porfavor intentelo denuevo mas tarde";
+					return "Ha ocurrido un error. Por favor intentelo denuevo mas tarde";
 				}
 				DirectoryTools.checkOrCreateFolder(this.myRenderedImages);
 				File zipResult = new File(this.myRenderedImages + "\\"+file.getName()+".zip");
@@ -121,18 +83,16 @@ public class Cliente{
 				}
 				return zipResult.getAbsolutePath();
 			} catch (RemoteException e) {
-				e.printStackTrace();
+				log.error("Error: " + e.getMessage());
+				return "Ha ocurrido un error con la conexión al servidor.";
 			}
 		}else {
 			log.error("Error: Archivo no cargado");
 			return "Error";
 		}
-		return "Error";
 	}
 	public boolean isReady() {
-		if(this.file != null && this.fileContent != null)
-			return true;
-		else return false;
+		return (this.file != null && this.fileContent != null);
 	}
 	
 	private void readConfigFile() {
@@ -140,16 +100,27 @@ public class Cliente{
 		Map config;
 		try {
 			config = gson.fromJson(new FileReader(this.clienteDirectory+"config.json"), Map.class);
-			Map server = (Map) config.get("server");
+
+			Map gateway = (Map) config.get("gateway");
+			this.gatewayIp = gateway.get("ip").toString();
+			this.gatewayPort = Integer.valueOf(gateway.get("port").toString());
+
 			Map paths = (Map) config.get("paths");
-			this.serverIp = server.get("ip").toString();
-			this.serverIpBak = server.get("ipBak").toString();
-			this.serverPort = Integer.valueOf(server.get("port").toString());
 			this.myRenderedImages = this.clienteDirectory + paths.get("renderedImages");
 
 		} catch (IOException e) {
-			log.info("Error Archivo Config!");
+			log.error("Error Archivo Config!");
 		} 
+	}
+
+	private void manageServerFall(){
+		log.error("Error al conectar con el Gateway " + this.gatewayIp + ":" + this.gatewayPort);
+		try {
+			log.info("Reintentando conectar...");
+			Thread.sleep(2000);
+		} catch (InterruptedException e) {
+			throw new RuntimeException(e);
+		}
 	}
 
 }
