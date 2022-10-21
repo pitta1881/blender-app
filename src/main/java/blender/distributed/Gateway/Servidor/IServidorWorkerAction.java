@@ -7,5 +7,6 @@ import java.rmi.Remote;
 import java.rmi.RemoteException;
 
 public interface IServidorWorkerAction extends IWorkerAction, IFTPAction, Remote{
+    void setPrimaryServerPort(int port) throws RemoteException;
 	String helloGateway() throws RemoteException;
 }

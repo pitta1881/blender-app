@@ -5,6 +5,8 @@ import blender.distributed.Servidor.Cliente.IClientAction;
 import blender.distributed.Servidor.FTP.FTPAction;
 import blender.distributed.Servidor.FTP.IFTPAction;
 import blender.distributed.Servidor.FTP.ServerFtp;
+import blender.distributed.Servidor.Gateway.GatewayAction;
+import blender.distributed.Servidor.Gateway.IGatewayAction;
 import blender.distributed.Servidor.Trabajo.PairTrabajoParte;
 import blender.distributed.Servidor.Trabajo.Trabajo;
 import blender.distributed.Servidor.Trabajo.TrabajoStatus;
@@ -45,11 +47,14 @@ public class Servidor {
 	//RMI
 	private int rmiPortForClientes;
 	private int rmiPortForWorkers;
+	private int rmiPortForGateway;
 	Registry registryCli;
 	Registry registrySv;
+	Registry registryGw;
 	private IClientAction remoteCliente;
 	private IFTPAction remoteFtpMan;
 	private IWorkerAction remoteWorker;
+	private IGatewayAction remoteGateway;
 
 
 	//Ftp Related
@@ -62,7 +67,7 @@ public class Servidor {
 		MDC.put("log.name", this.getClass().getSimpleName());
 		readConfigFile();
 		runFTPServer();
-		runRMIServer(this.rmiPortForClientes, this.rmiPortForWorkers);
+		runRMIServer(this.rmiPortForClientes, this.rmiPortForWorkers, this.rmiPortForGateway);
 		while(true) {
 			try {
 				listaWorkers.forEach((workerName, parTrabajoParte) -> {
@@ -87,27 +92,32 @@ public class Servidor {
 		}
 	}
 
-	private void runRMIServer(int rmiPortForClientes, int rmiPortForWorkers) {
+	private void runRMIServer(int rmiPortForClientes, int rmiPortForWorkers, int rmiPortForGateway) {
 		try {
 			System.setProperty("sun.security.ssl.allowUnsafeRenegotiation", "true"); // renegotiation process is disabled by default.. Without this can't run two clients rmi on same machine like worker and client.
 			createSingleServerDir(rmiPortForWorkers);
 			log.info("Levantando servidor RMI en puertos " + rmiPortForClientes + "(Clientes) y " + rmiPortForWorkers + "(Workers)");
 			registryCli = LocateRegistry.createRegistry(rmiPortForClientes);
 			registrySv = LocateRegistry.createRegistry(rmiPortForWorkers);
+			registryGw = LocateRegistry.createRegistry(rmiPortForGateway);
 
 			remoteFtpMan = (IFTPAction) UnicastRemoteObject.exportObject(new FTPAction(this.ftpPort, this.ftp),0);
 			remoteCliente = (IClientAction) UnicastRemoteObject.exportObject(new ClienteAction(this.listaTrabajos),0);
 			remoteWorker = (IWorkerAction) UnicastRemoteObject.exportObject(new WorkerAction(this.listaWorkers, this.listaTrabajos, this.workersLastPing, this.singleServerDir),0);
+			remoteGateway = (IGatewayAction) UnicastRemoteObject.exportObject(new GatewayAction(),0);
 
 			registrySv.rebind("ftpAction", remoteFtpMan);
 			registryCli.rebind("clientAction", remoteCliente);
 			registrySv.rebind("workerAction", remoteWorker);
+			registryGw.rebind("gatewayAction", remoteGateway);
+
 			log.info("Servidor RMI:");
 			log.info("\t -> Para Clientes: " + registryCli.toString());
 			log.info("\t -> Para Workers: " + registrySv.toString());
+			log.info("\t -> Para Gateway: " + registryGw.toString());
 		} catch (RemoteException e) {
 			log.error("Error: Puertos " + rmiPortForClientes + "(Clientes) y " + rmiPortForWorkers + "(Workers) en uso.");
-			runRMIServer(++rmiPortForClientes, ++rmiPortForWorkers);
+			runRMIServer(++rmiPortForClientes, ++rmiPortForWorkers, ++rmiPortForGateway);
 		}
 	}
 	
@@ -123,6 +133,7 @@ public class Servidor {
 			Map rmi = (Map) config.get("rmi");
 			this.rmiPortForClientes = Integer.valueOf(rmi.get("initialPortForClientes").toString());
 			this.rmiPortForWorkers = Integer.valueOf(rmi.get("initialPortForWorkers").toString());
+			this.rmiPortForGateway = Integer.valueOf(rmi.get("initialPortForGateway").toString());
 
 			Map ftp = (Map) config.get("ftp");
 			this.ftpPort = Integer.valueOf(ftp.get("port").toString());

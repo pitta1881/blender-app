@@ -5,6 +5,7 @@
   		},
   "rmi": {
   			 "portForClientes":"9100",
-  			 "portForWorkers":"9200"
+  			 "portForWorkers":"9200",
+	  		 "portForGateway":"9300"
   		}
 }

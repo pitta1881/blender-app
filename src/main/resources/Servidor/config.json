@@ -11,7 +11,8 @@
   		},
   "rmi": {
   			 "initialPortForClientes":"9101",
-  			 "initialPortForWorkers":"9201"
+  			 "initialPortForWorkers":"9201",
+	  		 "initialPortForGateway":"9301"
   		},
   "ftp":{
   			 "directory" : "\\FTP\\",
