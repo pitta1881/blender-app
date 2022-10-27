@@ -1,13 +1,6 @@
 {
   "server": {
-  			  "ip":"192.168.56.1"
-  		},
-  "queue": {
-  			  "ip":"192.168.0.108",
-  			  "ipBak":"192.168.0.108",
-  			  "port":"5672",
-  			  "user":"admin",
-  			  "pass":"admin"
+  			  "ip":"127.0.0.1"
   		},
   "rmi": {
   			 "initialPortForClientes":"9101",

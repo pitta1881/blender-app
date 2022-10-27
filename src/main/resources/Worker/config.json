@@ -1,13 +1,13 @@
 {
 	"gateway": {
-		"ip":"192.168.56.1",
+		"ip":"127.0.0.1",
 		"port":"9200"
 	},
   "paths": {
-  			  "blenderExe": "\\blender-3.2.2-windows-x64\\blender.exe",
+  			  "blenderExe": "\\blender-windows\\blender.exe",
 	          "worksDir": "\\Works\\",
   			  "rendersDir": "\\RenderedFiles\\",
   			  "blendDir": "\\BlendFile\\",
-	  		  "blenderPortableZip": "blender-3.2.2-windows-x64.zip"
+	  		  "blenderPortableZip": "blender-windows.zip"
   			}
 }
