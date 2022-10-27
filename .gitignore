@@ -89,5 +89,7 @@ $RECYCLE.BIN/
 
 # End of https://www.toptal.com/developers/gitignore/api/java,windows,linux,maven
 
-# Ignore blenderApp in worker
-Blender-app/
+# Ignore dynamics folders created by app
+/src/main/resources/Cliente/RenderedImages/
+/src/main/resources/Servidor/server*/
+/src/main/resources/Worker/worker*/
