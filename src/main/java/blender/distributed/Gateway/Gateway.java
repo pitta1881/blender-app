@@ -63,11 +63,12 @@ public class Gateway {
 		if(port == (this.rmiPortForGateway+1+this.max_servers))
 			port = this.rmiPortForGateway+1;
 		try {
+			Thread.sleep(1000);
 			Registry gatewayRMI = LocateRegistry.getRegistry(ip, port);
 			this.stubGateway = (IGatewayAction) gatewayRMI.lookup("gatewayAction");
 			this.primaryServerPort = port - this.rmiPortForGateway;
 			log.info("Conectado al Servidor " + ip + ":" + port);
-		} catch (RemoteException | NotBoundException e) {
+		} catch (RemoteException | NotBoundException | InterruptedException e) {
 			log.error("Error al conectar con el Servidor " + ip + ":" + port);
 			connectRMI(ip, port + 1);
 		}
