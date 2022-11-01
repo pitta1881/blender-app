@@ -116,17 +116,13 @@ public class ServidorWorkerAction implements IServidorWorkerAction {
 	private void connectRMI() {
 		this.stubWorker = null;
 		try {
+			Thread.sleep(1000);
 			Registry workerRMI = LocateRegistry.getRegistry(this.ip, this.primaryServerPort);
 			this.stubWorker = (IWorkerAction) workerRMI.lookup("workerAction");
 			this.stubFtp = (IFTPAction) workerRMI.lookup("ftpAction");
 			log.info("Conectado al Servidor " + this.ip + ":" + this.primaryServerPort);
-		} catch (RemoteException | NotBoundException e) {
+		} catch (RemoteException | NotBoundException | InterruptedException e) {
 			log.error("Error al conectar con el Servidor " + this.ip + ":" + this.primaryServerPort);
-			try {
-				Thread.sleep(1000);
-			} catch (InterruptedException ex) {
-				throw new RuntimeException(ex);
-			}
 			connectRMI();
 		}
 	}

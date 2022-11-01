@@ -46,16 +46,12 @@ public class ServidorClienteAction implements IServidorClientAction {
 	private void connectRMI() {
 		this.stubCliente = null;
 		try {
+			Thread.sleep(1000);
 			Registry clienteRMI = LocateRegistry.getRegistry(this.ip, this.primaryServerPort);
 			this.stubCliente = (IClientAction) clienteRMI.lookup("clientAction");
 			log.info("Conectado al Servidor " + this.ip + ":" + this.primaryServerPort);
-		} catch (RemoteException | NotBoundException e) {
+		} catch (RemoteException | NotBoundException | InterruptedException e) {
 			log.error("Error al conectar con el Servidor " + this.ip + ":" + this.primaryServerPort);
-			try {
-				Thread.sleep(1000);
-			} catch (InterruptedException ex) {
-				throw new RuntimeException(ex);
-			}
 			connectRMI();
 		}
 	}
