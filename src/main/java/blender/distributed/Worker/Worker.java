@@ -67,7 +67,7 @@ public class Worker implements Runnable {
 		log.info("<-- [STEP 5] - REVISANDO ARCHIVOS NECESARIOS\t-->");
 		if (checkNeededFiles()) {
 			log.info("<-- [STEP 6] - ESPERANDO TRABAJOS\t\t\t-->");
-			getWork();
+			//getWork();
 		} else {
 			log.debug("Error inesperado!");
 		}

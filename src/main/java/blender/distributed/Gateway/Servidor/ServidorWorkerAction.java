@@ -38,6 +38,7 @@ public class ServidorWorkerAction implements IServidorWorkerAction {
 		try {
 			this.stubWorker.pingAlive(workerName);
 		} catch (RemoteException | NullPointerException e) {
+			e.printStackTrace();
 			connectRMI();
 			pingAlive(workerName);
 		}

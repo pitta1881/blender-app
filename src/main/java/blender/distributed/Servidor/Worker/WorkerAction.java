@@ -44,6 +44,7 @@ public class WorkerAction implements IWorkerAction{
 	@Override
 	public void pingAlive(String workerName){
 		try (Jedis jedis = this.pool.getResource()) {
+			jedis.auth("th3_f0rce_m4y_b3_w1th_y0u");
 			byte[] workerNameByte = SerializationUtils.serialize(workerName);
 			byte[] workerDataByte = jedis.hget(this.listaWorkersByte, workerNameByte);
 			PairParteLastping workerRecord;

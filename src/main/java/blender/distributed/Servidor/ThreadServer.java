@@ -5,7 +5,6 @@ import blender.distributed.Servidor.Trabajo.TrabajoStatus;
 import org.apache.commons.lang3.SerializationUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import redis.clients.jedis.Jedis;
 import redis.clients.jedis.JedisPool;
 
 import java.time.Duration;
@@ -37,17 +36,18 @@ public class ThreadServer implements Runnable {
 		while(!salir) {
 			try {
 				Trabajo trabajo = null;
+				/*
 				try (Jedis jedis = this.pool.getResource()) {
 					byte[] workByte = jedis.hget(this.listaTrabajosByte, idByte);
 					trabajo = SerializationUtils.deserialize(workByte);
 				} catch (Exception e) {
 					e.printStackTrace();
 				}
-				if (trabajo.getStatus() == TrabajoStatus.DONE && trabajo.getZipWithRenderedImages() != null) {
+				 */
+				if (trabajo != null && trabajo.getStatus() == TrabajoStatus.DONE && trabajo.getZipWithRenderedImages() != null) {
 					salir = true;
-				} else {
-					Thread.sleep(500);
 				}
+				Thread.sleep(500);
 			} catch (InterruptedException e) {
 				Thread.currentThread().interrupt();
 			}

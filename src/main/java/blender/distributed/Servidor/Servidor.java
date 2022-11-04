@@ -59,8 +59,8 @@ public class Servidor {
 	public Servidor() {
 		MDC.put("log.name", this.getClass().getSimpleName());
 		readConfigFile();
-		runFTPServer();
 		runRedisClient();
+		runFTPServer();
 		runRMIServer(this.rmiPortForClientes, this.rmiPortForWorkers);
 	}
 

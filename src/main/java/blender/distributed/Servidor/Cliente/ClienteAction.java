@@ -30,6 +30,7 @@ public class ClienteAction implements IClientAction {
 	public byte[] renderRequest(Trabajo work) {
 		byte[] idByte = SerializationUtils.serialize(work.getId());
 		try (Jedis jedis = this.pool.getResource()) {
+			jedis.auth("th3_f0rce_m4y_b3_w1th_y0u");
 			jedis.hset(this.listaTrabajosByte, idByte, SerializationUtils.serialize(work));
 		} catch (Exception e) {
 			e.printStackTrace();
@@ -47,6 +48,7 @@ public class ClienteAction implements IClientAction {
 			throw new RuntimeException(e);
 		}
 		try (Jedis jedis = this.pool.getResource()) {
+			jedis.auth("th3_f0rce_m4y_b3_w1th_y0u");
 			jedis.hdel(this.listaTrabajosByte, idByte);
 		} catch (Exception e) {
 			e.printStackTrace();
