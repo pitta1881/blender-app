@@ -5,14 +5,12 @@ import blender.distributed.Gateway.Servidor.IServidorWorkerAction;
 import blender.distributed.Gateway.Servidor.ServidorClienteAction;
 import blender.distributed.Gateway.Servidor.ServidorWorkerAction;
 import com.google.gson.Gson;
+import io.lettuce.core.RedisClient;
+import io.lettuce.core.api.StatefulRedisConnection;
 import org.apache.commons.lang3.SerializationUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
-import redis.clients.jedis.Jedis;
-import redis.clients.jedis.JedisPool;
-import redis.clients.jedis.JedisPoolConfig;
-import redis.clients.jedis.Protocol;
 
 import java.io.FileReader;
 import java.io.IOException;
@@ -20,8 +18,6 @@ import java.rmi.RemoteException;
 import java.rmi.registry.LocateRegistry;
 import java.rmi.registry.Registry;
 import java.rmi.server.UnicastRemoteObject;
-import java.time.Duration;
-import java.time.LocalTime;
 import java.util.Map;
 
 public class Gateway {
@@ -38,7 +34,6 @@ public class Gateway {
 	private IServidorClientAction remoteCliente;
 	private IServidorWorkerAction remoteWorker;
 
-	JedisPool pool;
 	//redis related
 	private String redisIp;
 	private int redisPort;
@@ -49,10 +44,11 @@ public class Gateway {
 		MDC.put("log.name", this.getClass().getSimpleName());
 		readConfigFile();
 		try {
-			runRMIServer();
 			runRedisClient();
+			runRMIServer();
 			while(true){
 				Thread.sleep(3000);
+				/*
 				try (Jedis jedis = this.pool.getResource()) {
 					Map<byte[], byte[]> listaWorkers = jedis.hgetAll(this.listaWorkersByte);
 					listaWorkers.forEach((workerNameByte, parParteLastpingByte) -> {
@@ -69,6 +65,7 @@ public class Gateway {
 					jedis.close();
 					});
 				}
+				 */
 			}
 		} catch (RemoteException e) {
 			e.printStackTrace();
@@ -119,10 +116,12 @@ public class Gateway {
 	}
 
 	private void runRedisClient() {
-		this.pool = new JedisPool(new JedisPoolConfig(), this.redisIp, this.redisPort, Protocol.DEFAULT_TIMEOUT, this.redisPassword);
-		try (Jedis jedis = this.pool.getResource()) {
-			jedis.flushAll();
-		}
+		RedisClient redisClient = RedisClient.create("redis://"+this.redisPassword+"@"+this.redisIp+":"+this.redisPort);
+		log.info("Conectado a Redis exitosamente.");
+		StatefulRedisConnection redisConnection = redisClient.connect();
+		redisConnection.sync().flushdb();
+		redisConnection.close();
+		redisClient.shutdown();
 	}
 
 	public static void main(String[] args) {

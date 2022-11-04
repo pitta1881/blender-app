@@ -1,13 +1,15 @@
 package blender.distributed.Servidor.Cliente;
 
+import blender.distributed.Servidor.SerializedObjectCodec;
 import blender.distributed.Servidor.ThreadServer;
 import blender.distributed.Servidor.Trabajo.Trabajo;
+import io.lettuce.core.RedisClient;
+import io.lettuce.core.api.StatefulRedisConnection;
+import io.lettuce.core.api.sync.RedisCommands;
 import org.apache.commons.lang3.SerializationUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
-import redis.clients.jedis.Jedis;
-import redis.clients.jedis.JedisPool;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -17,26 +19,26 @@ import java.util.concurrent.Executors;
 
 public class ClienteAction implements IClientAction {
 	Logger log = LoggerFactory.getLogger(ClienteAction.class);
-	JedisPool pool;
+	String redisIp;
+	int redisPort;
+	RedisClient redisClient;
 	byte[] listaTrabajosByte = SerializationUtils.serialize("listaTrabajos");
 
 
-	public ClienteAction(JedisPool pool) {
-		this.pool = pool;
+	public ClienteAction(RedisClient redisClient) {
 		MDC.put("log.name", ClienteAction.class.getSimpleName());
+		this.redisClient = redisClient;
 	}
 
 	@Override
 	public byte[] renderRequest(Trabajo work) {
-		byte[] idByte = SerializationUtils.serialize(work.getId());
-		try (Jedis jedis = this.pool.getResource()) {
-			jedis.hset(this.listaTrabajosByte, idByte, SerializationUtils.serialize(work));
-		} catch (Exception e) {
-			e.printStackTrace();
-		}
+		StatefulRedisConnection<String, Object> redisConnection = this.redisClient.connect(new SerializedObjectCodec());
+		RedisCommands<String, Object> syncCommands = redisConnection.sync();
+		syncCommands.hset("listaTrabajos", work.getId(), work);
+
 		CountDownLatch latch = new CountDownLatch(1);
 		List<ThreadServer> serverThread = new ArrayList<>();
-		serverThread.add(new ThreadServer(latch, this.pool, work));
+		serverThread.add(new ThreadServer(latch, this.redisClient, work));
 		Executor executor = Executors.newFixedThreadPool(serverThread.size());
 		for(final ThreadServer wt : serverThread) {
 			executor.execute(wt);
@@ -46,11 +48,8 @@ public class ClienteAction implements IClientAction {
 		} catch (InterruptedException e) {
 			throw new RuntimeException(e);
 		}
-		try (Jedis jedis = this.pool.getResource()) {
-			jedis.hdel(this.listaTrabajosByte, idByte);
-		} catch (Exception e) {
-			e.printStackTrace();
-		}
+		syncCommands.hdel("listaTrabajos", work.getId());
+		redisConnection.close();
 		return work.getZipWithRenderedImages();
 	}
 }

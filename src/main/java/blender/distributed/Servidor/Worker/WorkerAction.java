@@ -1,23 +1,23 @@
 package blender.distributed.Servidor.Worker;
 
 import blender.distributed.Gateway.PairParteLastping;
+import blender.distributed.Servidor.SerializedObjectCodec;
 import blender.distributed.Servidor.Trabajo.PairTrabajoParte;
 import blender.distributed.Servidor.Trabajo.Trabajo;
 import blender.distributed.Servidor.Trabajo.TrabajoPart;
 import blender.distributed.Servidor.Trabajo.TrabajoStatus;
 import blender.distributed.SharedTools.DirectoryTools;
+import io.lettuce.core.RedisClient;
+import io.lettuce.core.api.StatefulRedisConnection;
+import io.lettuce.core.api.sync.RedisCommands;
 import net.lingala.zip4j.ZipFile;
-import org.apache.commons.lang3.SerializationUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
-import redis.clients.jedis.Jedis;
-import redis.clients.jedis.JedisPool;
 
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
-import java.io.InputStream;
 import java.nio.file.Files;
 import java.rmi.RemoteException;
 import java.time.LocalTime;
@@ -29,41 +29,36 @@ public class WorkerAction implements IWorkerAction{
 	Map<String, PairTrabajoParte> listaWorkers;
 	ArrayList<Trabajo> listaTrabajos;
 	String singleServerDir;
-	JedisPool pool;
-	byte[] listaWorkersByte = SerializationUtils.serialize("listaWorkers");
-	byte[] listaTrabajosByte = SerializationUtils.serialize("listaTrabajos");
+	RedisClient redisClient;
 
 
-
-	public WorkerAction(JedisPool pool, String singleServerDir) {
+	public WorkerAction(RedisClient redisClient, String singleServerDir) {
 		MDC.put("log.name", WorkerAction.class.getSimpleName());
 		this.singleServerDir = singleServerDir;
-		this.pool = pool;
+		this.redisClient = redisClient;
 	}
 
 	@Override
 	public void pingAlive(String workerName){
-		try (Jedis jedis = this.pool.getResource()) {
-			byte[] workerNameByte = SerializationUtils.serialize(workerName);
-			byte[] workerDataByte = jedis.hget(this.listaWorkersByte, workerNameByte);
-			PairParteLastping workerRecord;
-			if(workerDataByte == null) {
-				log.info("Registrando nuevo worker: " + workerName);
-				workerRecord = new PairParteLastping(null, LocalTime.now());
-			} else {
-				PairParteLastping workerRecordTemp = SerializationUtils.deserialize(workerDataByte);
-				workerRecord = new PairParteLastping(workerRecordTemp.ptp(), LocalTime.now());
-			}
-			jedis.hset(this.listaWorkersByte, workerNameByte, SerializationUtils.serialize(workerRecord));
-			jedis.close();
-		} catch (Exception e) {
-			e.printStackTrace();
+		StatefulRedisConnection<String, Object> redisConnection = this.redisClient.connect(new SerializedObjectCodec());
+		RedisCommands<String, Object> syncCommands = redisConnection.sync();
+
+		PairParteLastping workerRecord = (PairParteLastping) syncCommands.hget("listaWorkers", workerName);
+		if(workerRecord == null) {
+			log.info("Registrando nuevo worker: " + workerName);
+			workerRecord = new PairParteLastping(null, LocalTime.now());
+		} else {
+			workerRecord = new PairParteLastping(workerRecord.ptp(), LocalTime.now());
 		}
+		syncCommands.hset("listaWorkers", workerName, workerRecord);
+
+		redisConnection.close();
 	}
 
 
 	@Override
 	public PairTrabajoParte giveWorkToDo(String workerName) throws RemoteException {
+		/*
 		try (Jedis jedis = this.pool.getResource()) {
 			Map<byte[], byte[]> listaTrabajos = jedis.hgetAll(this.listaTrabajosByte);
 			if (listaTrabajos.size() == 0) {
@@ -86,7 +81,8 @@ public class WorkerAction implements IWorkerAction{
 			jedis.close();
 
 			return ptp;
-		}
+		 */
+			return null;
 	}
 
 	@Override

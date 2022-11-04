@@ -10,12 +10,10 @@ import blender.distributed.Servidor.Worker.IWorkerAction;
 import blender.distributed.Servidor.Worker.WorkerAction;
 import blender.distributed.SharedTools.DirectoryTools;
 import com.google.gson.Gson;
+import io.lettuce.core.RedisClient;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
-import redis.clients.jedis.JedisPool;
-import redis.clients.jedis.JedisPoolConfig;
-import redis.clients.jedis.Protocol;
 
 import java.io.File;
 import java.io.FileReader;
@@ -53,7 +51,7 @@ public class Servidor {
 	private String redisIp;
 	private int redisPort;
 	private String redisPassword;
-	JedisPool pool;
+	RedisClient redisClient;
 
 
 	public Servidor() {
@@ -73,8 +71,8 @@ public class Servidor {
 			registrySv = LocateRegistry.createRegistry(rmiPortForWorkers);
 
 			remoteFtpMan = (IFTPAction) UnicastRemoteObject.exportObject(new FTPAction(this.ftpPort, this.ftp),0);
-			remoteCliente = (IClientAction) UnicastRemoteObject.exportObject(new ClienteAction(this.pool),0);
-			remoteWorker = (IWorkerAction) UnicastRemoteObject.exportObject(new WorkerAction(this.pool, this.singleServerDir),0);
+			remoteCliente = (IClientAction) UnicastRemoteObject.exportObject(new ClienteAction(this.redisClient),0);
+			remoteWorker = (IWorkerAction) UnicastRemoteObject.exportObject(new WorkerAction(this.redisClient, this.singleServerDir),0);
 
 			registrySv.rebind("ftpAction", remoteFtpMan);
 			registryCli.rebind("clientAction", remoteCliente);
@@ -119,15 +117,16 @@ public class Servidor {
 		log.info("FTP Configurado correctamente. Listo para usar en puerto:"+this.ftpPort+". Compartiendo carpeta: "+this.myFTPDirectory);
 	}
 
-	private void runRedisClient() {
-		pool = new JedisPool(new JedisPoolConfig(), this.redisIp, this.redisPort, Protocol.DEFAULT_TIMEOUT, this.redisPassword);
-	}
-
 	private void createSingleServerDir(int portWorkerUsed){
 		int serverNumber = portWorkerUsed - 9200;
 		File singleServerFileDir = new File(this.serverDirectory + "\\server9x0" + serverNumber);
 		this.singleServerDir = singleServerFileDir.getAbsolutePath();
 		DirectoryTools.checkOrCreateFolder(this.singleServerDir);
+	}
+
+	private void runRedisClient() {
+		this.redisClient = RedisClient.create("redis://"+this.redisPassword+"@"+this.redisIp+":"+this.redisPort);
+		log.info("Conectado a Redis exitosamente.");
 	}
 
 	public static void main(String[] args) {

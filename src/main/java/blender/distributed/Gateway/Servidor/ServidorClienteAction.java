@@ -38,6 +38,7 @@ public class ServidorClienteAction implements IServidorClientAction {
 		try {
 			return this.stubCliente.renderRequest(work);
 		} catch (RemoteException | NullPointerException e) {
+			e.printStackTrace();
 			connectRMI();
 			return renderRequest(work);
 		}

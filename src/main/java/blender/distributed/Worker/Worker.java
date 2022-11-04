@@ -38,7 +38,7 @@ public class Worker implements Runnable {
 	Logger log = LoggerFactory.getLogger(Worker.class);
 	String blenderPortableZip;
 	String workerDir = System.getProperty("user.dir") + "\\src\\main\\resources\\Worker\\";
-	String workerName = "worker1663802677984"; //"worker1663802677984"; //"worker1663802677985";
+	String workerName = "worker1663802677985"; //"worker1663802677984"; //"worker1663802677985";
 	String singleWorkerDir = workerDir+"\\"+workerName+"\\"; //"\\worker"+System.currentTimeMillis()+"\\";
 	String blenderExe;
 	String worksDir;
@@ -62,12 +62,10 @@ public class Worker implements Runnable {
 		connectRMI();
 		log.info("<-- [STEP 3] - LANZANDO THREAD ALIVE \t\t\t-->");
 		lanzarThread();
-		//log.info("<-- [STEP 4] - REALIZANDO CONEXION CON RABBITMQ -->");
-		//getQueueConn();
-		log.info("<-- [STEP 5] - REVISANDO ARCHIVOS NECESARIOS\t-->");
+		log.info("<-- [STEP 4] - REVISANDO ARCHIVOS NECESARIOS\t-->");
 		if (checkNeededFiles()) {
-			log.info("<-- [STEP 6] - ESPERANDO TRABAJOS\t\t\t-->");
-			getWork();
+			log.info("<-- [STEP 5] - ESPERANDO TRABAJOS\t\t\t-->");
+			//getWork();
 		} else {
 			log.debug("Error inesperado!");
 		}
