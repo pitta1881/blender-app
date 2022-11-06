@@ -15,15 +15,17 @@ import java.rmi.registry.Registry;
 public class ServidorClienteAction implements IServidorClientAction {
 	Logger log = LoggerFactory.getLogger(ClienteAction.class);
 	String ip;
-	int initialPort;
 	IClientAction stubCliente = null;
-	int max_servers;
+	int primaryServerPort;
 
-	public ServidorClienteAction(String ip, int initialPort, int max_servers) {
+	public ServidorClienteAction(String ip) {
 		MDC.put("log.name", ServidorClienteAction.class.getSimpleName());
 		this.ip = ip;
-		this.initialPort = initialPort + 1;
-		this.max_servers = max_servers;
+	}
+
+	@Override
+	public void setPrimaryServerPort(int port){
+		this.primaryServerPort = port;
 	}
 
 	@Override
@@ -36,22 +38,22 @@ public class ServidorClienteAction implements IServidorClientAction {
 		try {
 			return this.stubCliente.renderRequest(work);
 		} catch (RemoteException | NullPointerException e) {
-			connectRMI(this.ip, initialPort);
+			e.printStackTrace();
+			connectRMI();
 			return renderRequest(work);
 		}
 	}
 
-	private void connectRMI(String ip, int port) {
+	private void connectRMI() {
 		this.stubCliente = null;
-		if(port == (this.initialPort+this.max_servers))
-			port = this.initialPort;
 		try {
-			Registry clienteRMI = LocateRegistry.getRegistry(ip, port);
+			Thread.sleep(1000);
+			Registry clienteRMI = LocateRegistry.getRegistry(this.ip, this.primaryServerPort);
 			this.stubCliente = (IClientAction) clienteRMI.lookup("clientAction");
-			log.info("Conectado al Servidor " + ip + ":" + port);
-		} catch (RemoteException | NotBoundException e) {
-			log.error("Error al conectar con el Servidor " + ip + ":" + port);
-			connectRMI(ip, port + 1);
+			log.info("Conectado al Servidor " + this.ip + ":" + this.primaryServerPort);
+		} catch (RemoteException | NotBoundException | InterruptedException e) {
+			log.error("Error al conectar con el Servidor " + this.ip + ":" + this.primaryServerPort);
+			connectRMI();
 		}
 	}
 }

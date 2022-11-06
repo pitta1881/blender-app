@@ -15,16 +15,13 @@ import java.rmi.registry.Registry;
 public class ServidorWorkerAction implements IServidorWorkerAction {
 	Logger log = LoggerFactory.getLogger(ServidorWorkerAction.class);
 	String ip;
-	int initialPort;
 	IWorkerAction stubWorker = null;
 	IFTPAction stubFtp;
-	int max_servers;
+	int primaryServerPort;
 
-	public ServidorWorkerAction(String ip, int initialPort, int max_servers) {
+	public ServidorWorkerAction(String ip) {
 		MDC.put("log.name", ServidorWorkerAction.class.getSimpleName());
 		this.ip = ip;
-		this.initialPort = initialPort + 1;
-		this.max_servers = max_servers;
 	}
 
 	@Override
@@ -33,11 +30,16 @@ public class ServidorWorkerAction implements IServidorWorkerAction {
 	}
 
 	@Override
+	public void setPrimaryServerPort(int port){
+		this.primaryServerPort = port;
+	}
+	@Override
 	public void pingAlive(String workerName) {
 		try {
 			this.stubWorker.pingAlive(workerName);
 		} catch (RemoteException | NullPointerException e) {
-			connectRMI(this.ip, initialPort);
+			e.printStackTrace();
+			connectRMI();
 			pingAlive(workerName);
 		}
 	}
@@ -47,7 +49,7 @@ public class ServidorWorkerAction implements IServidorWorkerAction {
 		try {
 			return this.stubWorker.giveWorkToDo(workerName);
 		} catch (RemoteException | NullPointerException e) {
-			connectRMI(this.ip, initialPort);
+			connectRMI();
 			return giveWorkToDo(workerName);
 		}
 	}
@@ -57,7 +59,7 @@ public class ServidorWorkerAction implements IServidorWorkerAction {
 		try {
 			this.stubWorker.setTrabajoParteStatusDone(workerName, trabajoId, nParte, zipWithRenderedImages);
 		} catch (RemoteException | NullPointerException e) {
-			connectRMI(this.ip, initialPort);
+			connectRMI();
 			setTrabajoParteStatusDone(workerName, trabajoId, nParte, zipWithRenderedImages);
 		}
 	}
@@ -67,7 +69,7 @@ public class ServidorWorkerAction implements IServidorWorkerAction {
 		try {
 			return this.stubFtp.startFTPServer();
 		} catch (RemoteException | NullPointerException e) {
-			connectRMI(this.ip, initialPort);
+			connectRMI();
 			return startFTPServer();
 		}
 	}
@@ -77,7 +79,7 @@ public class ServidorWorkerAction implements IServidorWorkerAction {
 		try {
 			return this.stubFtp.stopFTPServer();
 		} catch (RemoteException | NullPointerException e) {
-			connectRMI(this.ip, initialPort);
+			connectRMI();
 			return stopFTPServer();
 		}
 	}
@@ -87,7 +89,7 @@ public class ServidorWorkerAction implements IServidorWorkerAction {
 		try {
 			return this.stubFtp.getFTPPort();
 		} catch (RemoteException | NullPointerException e) {
-			connectRMI(this.ip, initialPort);
+			connectRMI();
 			return getFTPPort();
 		}
 	}
@@ -97,7 +99,7 @@ public class ServidorWorkerAction implements IServidorWorkerAction {
 		try {
 			return this.stubFtp.isFTPStopped();
 		} catch (RemoteException | NullPointerException e) {
-			connectRMI(this.ip, initialPort);
+			connectRMI();
 			return isFTPStopped();
 		}
 	}
@@ -107,23 +109,22 @@ public class ServidorWorkerAction implements IServidorWorkerAction {
 		try {
 			return this.stubFtp.resumeFTPServer();
 		} catch (RemoteException | NullPointerException e) {
-			connectRMI(this.ip, initialPort);
+			connectRMI();
 			return resumeFTPServer();
 		}
 	}
 
-	private void connectRMI(String ip, int port) {
+	private void connectRMI() {
 		this.stubWorker = null;
-		if(port == (this.initialPort+this.max_servers))
-			port = this.initialPort;
 		try {
-			Registry workerRMI = LocateRegistry.getRegistry(ip, port);
+			Thread.sleep(1000);
+			Registry workerRMI = LocateRegistry.getRegistry(this.ip, this.primaryServerPort);
 			this.stubWorker = (IWorkerAction) workerRMI.lookup("workerAction");
 			this.stubFtp = (IFTPAction) workerRMI.lookup("ftpAction");
-			log.info("Conectado al Servidor " + ip + ":" + port);
-		} catch (RemoteException | NotBoundException e) {
-			log.error("Error al conectar con el Servidor " + ip + ":" + port);
-			connectRMI(ip, port + 1);
+			log.info("Conectado al Servidor " + this.ip + ":" + this.primaryServerPort);
+		} catch (RemoteException | NotBoundException | InterruptedException e) {
+			log.error("Error al conectar con el Servidor " + this.ip + ":" + this.primaryServerPort);
+			connectRMI();
 		}
 	}
 }

@@ -30,13 +30,15 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 
+import static blender.distributed.SharedTools.Tools.manageGatewayFall;
+
 
 public class Worker implements Runnable {
 	//General
 	Logger log = LoggerFactory.getLogger(Worker.class);
 	String blenderPortableZip;
 	String workerDir = System.getProperty("user.dir") + "\\src\\main\\resources\\Worker\\";
-	String workerName = "worker"+System.currentTimeMillis(); //"worker1663802677984"; //"worker1663802677985";
+	String workerName = "worker1663802677984"; //"worker1663802677984"; //"worker1663802677985";
 	String singleWorkerDir = workerDir+"\\"+workerName+"\\"; //"\\worker"+System.currentTimeMillis()+"\\";
 	String blenderExe;
 	String worksDir;
@@ -65,7 +67,7 @@ public class Worker implements Runnable {
 		log.info("<-- [STEP 5] - REVISANDO ARCHIVOS NECESARIOS\t-->");
 		if (checkNeededFiles()) {
 			log.info("<-- [STEP 6] - ESPERANDO TRABAJOS\t\t\t-->");
-			getWork();
+			//getWork();
 		} else {
 			log.debug("Error inesperado!");
 		}
@@ -227,6 +229,7 @@ public class Worker implements Runnable {
 
 	private void connectRMI() {
 		try {
+			Thread.sleep(1000);
 			Registry workerRMI = LocateRegistry.getRegistry(this.gatewayIp, this.gatewayPort);
 			this.stubGateway = (IServidorWorkerAction) workerRMI.lookup("workerAction");
 			String gatewayResp = this.stubGateway.helloGateway();
@@ -234,16 +237,8 @@ public class Worker implements Runnable {
 				log.info("Conectado al Gateway: " + this.gatewayIp + ":" + this.gatewayPort);
 			}
 		} catch (RemoteException | NotBoundException e) {
-			manageServerFall();
+			manageGatewayFall(this.gatewayIp, this.gatewayPort);
 			connectRMI();
-		}
-	}
-
-	private void manageServerFall(){
-		log.error("Error al conectar con el Gateway " + this.gatewayIp + ":" + this.gatewayPort);
-		try {
-			log.info("Reintentando conectar...");
-			Thread.sleep(2000);
 		} catch (InterruptedException e) {
 			throw new RuntimeException(e);
 		}

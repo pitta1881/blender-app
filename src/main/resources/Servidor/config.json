@@ -1,13 +1,6 @@
 {
   "server": {
-  			  "ip":"192.168.56.1"
-  		},
-  "queue": {
-  			  "ip":"192.168.0.108",
-  			  "ipBak":"192.168.0.108",
-  			  "port":"5672",
-  			  "user":"admin",
-  			  "pass":"admin"
+  			  "ip":"127.0.0.1"
   		},
   "rmi": {
   			 "initialPortForClientes":"9101",
@@ -16,5 +9,10 @@
   "ftp":{
   			 "directory" : "\\FTP\\",
   			 "port" : "2121"
-  }		
+  },
+	"redis":{
+		"ip" : "127.0.0.1",
+		"port" : "6379",
+		"password": "th3_f0rce_m4y_b3_w1th_y0u"
+	}
 }

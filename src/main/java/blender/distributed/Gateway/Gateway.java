@@ -5,9 +5,14 @@ import blender.distributed.Gateway.Servidor.IServidorWorkerAction;
 import blender.distributed.Gateway.Servidor.ServidorClienteAction;
 import blender.distributed.Gateway.Servidor.ServidorWorkerAction;
 import com.google.gson.Gson;
+import org.apache.commons.lang3.SerializationUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
+import redis.clients.jedis.Jedis;
+import redis.clients.jedis.JedisPool;
+import redis.clients.jedis.JedisPoolConfig;
+import redis.clients.jedis.Protocol;
 
 import java.io.FileReader;
 import java.io.IOException;
@@ -22,7 +27,6 @@ public class Gateway {
 	Logger log = LoggerFactory.getLogger(Gateway.class);
 	String gatewayDirectory = System.getProperty("user.dir")+"\\src\\main\\resources\\Gateway\\";
 	private String myIp;
-	private int max_servers;
 
 	//RMI
 	private int rmiPortForClientes;
@@ -32,11 +36,40 @@ public class Gateway {
 	private IServidorClientAction remoteCliente;
 	private IServidorWorkerAction remoteWorker;
 
+	JedisPool pool;
+	//redis related
+	private String redisIp;
+	private int redisPort;
+	private String redisPassword;
+	byte[] listaWorkersByte = SerializationUtils.serialize("listaWorkers");
+
 	public Gateway() {
 		MDC.put("log.name", this.getClass().getSimpleName());
 		readConfigFile();
 		try {
+			runRedisClient();
 			runRMIServer();
+			/*
+			while(true){
+				Thread.sleep(3000);
+				try (Jedis jedis = this.pool.getResource()) {
+					Map<byte[], byte[]> listaWorkers = jedis.hgetAll(this.listaWorkersByte);
+					listaWorkers.forEach((workerNameByte, parParteLastpingByte) -> {
+						PairParteLastping plp = SerializationUtils.deserialize(parParteLastpingByte);
+						//Checkeo si se cayo un nodo
+						String workerNameString = SerializationUtils.deserialize(workerNameByte);
+						LocalTime timeLastPing = plp.lastPing();
+						int differenceLastKnownPing = (int) Duration.between(timeLastPing, LocalTime.now()).getSeconds();
+						if (differenceLastKnownPing > 7) {
+							//plp.ptp().parte().setStatus(TrabajoStatus.TO_DO); conseguir el trabajo de la otra lista
+							jedis.hdel(this.listaWorkersByte, workerNameByte);
+							log.error("Eliminando al nodo " + workerNameString + ". Motivo time-out de " + differenceLastKnownPing + " segundos.");
+						}
+					jedis.close();
+					});
+				}
+			}
+			 */
 		} catch (RemoteException e) {
 			e.printStackTrace();
 		}
@@ -48,16 +81,19 @@ public class Gateway {
 		registryCli = LocateRegistry.createRegistry(this.rmiPortForClientes);
 		registrySv = LocateRegistry.createRegistry(this.rmiPortForWorkers);
 
-		remoteCliente = (IServidorClientAction) UnicastRemoteObject.exportObject(new ServidorClienteAction(this.myIp, this.rmiPortForClientes, max_servers),0);
-		remoteWorker = (IServidorWorkerAction) UnicastRemoteObject.exportObject(new ServidorWorkerAction(this.myIp, this.rmiPortForWorkers, max_servers),0);
+		remoteCliente = (IServidorClientAction) UnicastRemoteObject.exportObject(new ServidorClienteAction(this.myIp),0);
+		remoteWorker = (IServidorWorkerAction) UnicastRemoteObject.exportObject(new ServidorWorkerAction(this.myIp),0);
+		remoteCliente.setPrimaryServerPort(9101);
+		remoteWorker.setPrimaryServerPort(9201);
 
 		registryCli.rebind("clientAction", remoteCliente);
 		registrySv.rebind("workerAction", remoteWorker);
-		log.info("Gateway RMI (MAX SERVERS: " + this.max_servers + ")");
+
+		log.info("Gateway RMI");
 		log.info("\t -> Para Clientes: " + registryCli.toString());
 		log.info("\t -> Para Workers: " + registrySv.toString());
 	}
-	
+
 	private void readConfigFile() {
 		Gson gson = new Gson();
 		Map config;
@@ -66,13 +102,25 @@ public class Gateway {
 			
 			Map server = (Map) config.get("gateway");
 			this.myIp = server.get("ip").toString();
-			this.max_servers = Integer.valueOf(server.get("max_servers").toString());
 
 			Map rmi = (Map) config.get("rmi");
 			this.rmiPortForClientes = Integer.valueOf(rmi.get("portForClientes").toString());
 			this.rmiPortForWorkers = Integer.valueOf(rmi.get("portForWorkers").toString());
 
+			Map redis = (Map) config.get("redis");
+			this.redisIp = redis.get("ip").toString();
+			this.redisPort = Integer.valueOf(redis.get("port").toString());
+			this.redisPassword = redis.get("password").toString();
+
 		} catch (IOException e) {
+		}
+	}
+
+	private void runRedisClient() {
+		this.pool = new JedisPool(new JedisPoolConfig(), this.redisIp, this.redisPort, Protocol.DEFAULT_TIMEOUT, this.redisPassword);
+		try (Jedis jedis = this.pool.getResource()) {
+			jedis.auth(this.redisPassword);
+			jedis.flushAll();
 		}
 	}
 

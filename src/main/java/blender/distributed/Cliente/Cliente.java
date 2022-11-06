@@ -21,6 +21,8 @@ import java.rmi.registry.LocateRegistry;
 import java.rmi.registry.Registry;
 import java.util.Map;
 
+import static blender.distributed.SharedTools.Tools.manageGatewayFall;
+
 public class Cliente{
 	static Logger log = LoggerFactory.getLogger(Cliente.class);
 	IServidorClientAction stubGateway;
@@ -51,7 +53,7 @@ public class Cliente{
 				e1.printStackTrace();
 			}
 		} catch (RemoteException | NotBoundException e) {
-			manageServerFall();
+			manageGatewayFall(this.gatewayIp, this.gatewayPort);
 			connectRMI();
 		}
 	}
@@ -111,16 +113,6 @@ public class Cliente{
 		} catch (IOException e) {
 			log.error("Error Archivo Config!");
 		} 
-	}
-
-	private void manageServerFall(){
-		log.error("Error al conectar con el Gateway " + this.gatewayIp + ":" + this.gatewayPort);
-		try {
-			log.info("Reintentando conectar...");
-			Thread.sleep(2000);
-		} catch (InterruptedException e) {
-			throw new RuntimeException(e);
-		}
 	}
 
 }
