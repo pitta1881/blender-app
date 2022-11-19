@@ -1,6 +1,6 @@
 package blender.distributed.Cliente;
 
-import blender.distributed.Gateway.Servidor.IServidorClientAction;
+import blender.distributed.Gateway.Servidor.IGatewayClientAction;
 import blender.distributed.Servidor.Trabajo.Trabajo;
 import blender.distributed.SharedTools.DirectoryTools;
 import com.google.gson.Gson;
@@ -25,7 +25,7 @@ import static blender.distributed.SharedTools.Tools.manageGatewayFall;
 
 public class Cliente{
 	static Logger log = LoggerFactory.getLogger(Cliente.class);
-	IServidorClientAction stubGateway;
+	IGatewayClientAction stubGateway;
 	File file;
 	byte[] fileContent;
 	private String gatewayIp;
@@ -41,7 +41,7 @@ public class Cliente{
 	public void connectRMI() {
 		try {
 			Registry clienteRMI = LocateRegistry.getRegistry(this.gatewayIp, this.gatewayPort);
-			this.stubGateway = (IServidorClientAction) clienteRMI.lookup("clientAction");
+			this.stubGateway = (IGatewayClientAction) clienteRMI.lookup("clientAction");
 			try {
 				String myIp = Inet4Address.getLocalHost().getHostAddress();
 				String myHostName = Inet4Address.getLocalHost().getCanonicalHostName();

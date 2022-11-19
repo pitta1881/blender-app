@@ -4,7 +4,8 @@
   		},
   "rmi": {
   			 "portForClientes":"9100",
-  			 "portForWorkers":"9200"
+  			 "portForWorkers":"9200",
+			 "portForServidores":"9300"
   		},
 	"redis":{
 		"ip" : "127.0.0.1",

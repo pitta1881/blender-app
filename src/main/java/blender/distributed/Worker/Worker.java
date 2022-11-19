@@ -1,6 +1,6 @@
 package blender.distributed.Worker;
 
-import blender.distributed.Gateway.Servidor.IServidorWorkerAction;
+import blender.distributed.Gateway.Servidor.IGatewayWorkerAction;
 import blender.distributed.Servidor.Trabajo.PairTrabajoParte;
 import blender.distributed.Servidor.Trabajo.Trabajo;
 import blender.distributed.Servidor.Trabajo.TrabajoPart;
@@ -38,14 +38,14 @@ public class Worker implements Runnable {
 	Logger log = LoggerFactory.getLogger(Worker.class);
 	String blenderPortableZip;
 	String workerDir = System.getProperty("user.dir") + "\\src\\main\\resources\\Worker\\";
-	String workerName = "worker1663802677985"; //"worker1663802677984"; //"worker1663802677985";
+	String workerName = "worker1663802677984"; //"worker1663802677984"; //"worker1663802677985";
 	String singleWorkerDir = workerDir+"\\"+workerName+"\\"; //"\\worker"+System.currentTimeMillis()+"\\";
 	String blenderExe;
 	String worksDir;
 	String blendDir;
 	String rendersDir;
 	String localIp;
-	IServidorWorkerAction stubGateway;
+	IGatewayWorkerAction stubGateway;
 	//ftp
 	ClientFTP cliFtp;
 	int serverFTPPort;
@@ -65,7 +65,7 @@ public class Worker implements Runnable {
 		log.info("<-- [STEP 4] - REVISANDO ARCHIVOS NECESARIOS\t-->");
 		if (checkNeededFiles()) {
 			log.info("<-- [STEP 5] - ESPERANDO TRABAJOS\t\t\t-->");
-			//getWork();
+			getWork();
 		} else {
 			log.debug("Error inesperado!");
 		}
@@ -229,7 +229,7 @@ public class Worker implements Runnable {
 		try {
 			Thread.sleep(1000);
 			Registry workerRMI = LocateRegistry.getRegistry(this.gatewayIp, this.gatewayPort);
-			this.stubGateway = (IServidorWorkerAction) workerRMI.lookup("workerAction");
+			this.stubGateway = (IGatewayWorkerAction) workerRMI.lookup("workerAction");
 			String gatewayResp = this.stubGateway.helloGateway();
 			if(!gatewayResp.isEmpty()){
 				log.info("Conectado al Gateway: " + this.gatewayIp + ":" + this.gatewayPort);

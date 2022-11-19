@@ -1,13 +1,9 @@
 package blender.distributed.Gateway;
 
-import blender.distributed.Gateway.Servidor.IServidorClientAction;
-import blender.distributed.Gateway.Servidor.IServidorWorkerAction;
-import blender.distributed.Gateway.Servidor.ServidorClienteAction;
-import blender.distributed.Gateway.Servidor.ServidorWorkerAction;
+import blender.distributed.Gateway.Servidor.*;
 import com.google.gson.Gson;
 import io.lettuce.core.RedisClient;
 import io.lettuce.core.api.StatefulRedisConnection;
-import org.apache.commons.lang3.SerializationUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
@@ -18,6 +14,7 @@ import java.rmi.RemoteException;
 import java.rmi.registry.LocateRegistry;
 import java.rmi.registry.Registry;
 import java.rmi.server.UnicastRemoteObject;
+import java.util.ArrayList;
 import java.util.Map;
 
 public class Gateway {
@@ -29,16 +26,20 @@ public class Gateway {
 	//RMI
 	private int rmiPortForClientes;
 	private int rmiPortForWorkers;
+	private int rmiPortForServidores;
 	Registry registryCli;
+	Registry registryWk;
 	Registry registrySv;
-	private IServidorClientAction remoteCliente;
-	private IServidorWorkerAction remoteWorker;
+	private IGatewayClientAction remoteCliente;
+	private IGatewayWorkerAction remoteWorker;
+	private IGatewayServidorAction remoteServidor;
 
 	//redis related
 	private String redisIp;
 	private int redisPort;
 	private String redisPassword;
-	byte[] listaWorkersByte = SerializationUtils.serialize("listaWorkers");
+	RedisClient redisClient;
+	ArrayList<PairIpPortCPortW> listaServidores = new ArrayList<>();
 
 	public Gateway() {
 		MDC.put("log.name", this.getClass().getSimpleName());
@@ -78,19 +79,21 @@ public class Gateway {
 		System.setProperty("sun.security.ssl.allowUnsafeRenegotiation", "true"); // renegotiation process is disabled by default.. Without this can't run two clients rmi on same machine like worker and client.
 		log.info("Levantando gateway RMI...");
 		registryCli = LocateRegistry.createRegistry(this.rmiPortForClientes);
-		registrySv = LocateRegistry.createRegistry(this.rmiPortForWorkers);
+		registryWk = LocateRegistry.createRegistry(this.rmiPortForWorkers);
+		registrySv = LocateRegistry.createRegistry(this.rmiPortForServidores);
 
-		remoteCliente = (IServidorClientAction) UnicastRemoteObject.exportObject(new ServidorClienteAction(this.myIp),0);
-		remoteWorker = (IServidorWorkerAction) UnicastRemoteObject.exportObject(new ServidorWorkerAction(this.myIp),0);
-		remoteCliente.setPrimaryServerPort(9101);
-		remoteWorker.setPrimaryServerPort(9201);
+		remoteCliente = (IGatewayClientAction) UnicastRemoteObject.exportObject(new GatewayClienteAction(this.listaServidores),0);
+		remoteWorker = (IGatewayWorkerAction) UnicastRemoteObject.exportObject(new GatewayWorkerAction(this.listaServidores),0);
+		remoteServidor = (IGatewayServidorAction) UnicastRemoteObject.exportObject(new GatewayServidorAction(this.redisClient, this.listaServidores),0);
 
 		registryCli.rebind("clientAction", remoteCliente);
-		registrySv.rebind("workerAction", remoteWorker);
+		registryWk.rebind("workerAction", remoteWorker);
+		registrySv.rebind("servidorAction", remoteServidor);
 
 		log.info("Gateway RMI");
 		log.info("\t -> Para Clientes: " + registryCli.toString());
-		log.info("\t -> Para Workers: " + registrySv.toString());
+		log.info("\t -> Para Workers: " + registryWk.toString());
+		log.info("\t -> Para Servidores: " + registrySv.toString());
 	}
 
 	private void readConfigFile() {
@@ -105,6 +108,7 @@ public class Gateway {
 			Map rmi = (Map) config.get("rmi");
 			this.rmiPortForClientes = Integer.valueOf(rmi.get("portForClientes").toString());
 			this.rmiPortForWorkers = Integer.valueOf(rmi.get("portForWorkers").toString());
+			this.rmiPortForServidores = Integer.valueOf(rmi.get("portForServidores").toString());
 
 			Map redis = (Map) config.get("redis");
 			this.redisIp = redis.get("ip").toString();
@@ -116,12 +120,11 @@ public class Gateway {
 	}
 
 	private void runRedisClient() {
-		RedisClient redisClient = RedisClient.create("redis://"+this.redisPassword+"@"+this.redisIp+":"+this.redisPort);
+		this.redisClient = RedisClient.create("redis://"+this.redisPassword+"@"+this.redisIp+":"+this.redisPort);
 		log.info("Conectado a Redis exitosamente.");
 		StatefulRedisConnection redisConnection = redisClient.connect();
 		redisConnection.sync().flushdb();
 		redisConnection.close();
-		redisClient.shutdown();
 	}
 
 	public static void main(String[] args) {

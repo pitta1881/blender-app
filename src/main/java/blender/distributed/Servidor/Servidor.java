@@ -1,5 +1,6 @@
 package blender.distributed.Servidor;
 
+import blender.distributed.Gateway.Servidor.IGatewayServidorAction;
 import blender.distributed.Servidor.Cliente.ClienteAction;
 import blender.distributed.Servidor.Cliente.IClientAction;
 import blender.distributed.Servidor.FTP.FTPAction;
@@ -10,7 +11,6 @@ import blender.distributed.Servidor.Worker.IWorkerAction;
 import blender.distributed.Servidor.Worker.WorkerAction;
 import blender.distributed.SharedTools.DirectoryTools;
 import com.google.gson.Gson;
-import io.lettuce.core.RedisClient;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
@@ -18,12 +18,15 @@ import org.slf4j.MDC;
 import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
+import java.rmi.NotBoundException;
 import java.rmi.RemoteException;
 import java.rmi.registry.LocateRegistry;
 import java.rmi.registry.Registry;
 import java.rmi.server.UnicastRemoteObject;
 import java.util.ArrayList;
 import java.util.Map;
+
+import static blender.distributed.SharedTools.Tools.manageGatewayFall;
 
 public class Servidor {
 	//General settings
@@ -47,19 +50,17 @@ public class Servidor {
 	private int ftpPort;
 	ServerFtp ftp;
 
-	//redis related
-	private String redisIp;
-	private int redisPort;
-	private String redisPassword;
-	RedisClient redisClient;
+	IGatewayServidorAction stubGateway;
+	private String gatewayIp;
+	private int gatewayPort;
 
 
 	public Servidor() {
 		MDC.put("log.name", this.getClass().getSimpleName());
 		readConfigFile();
 		runFTPServer();
-		runRedisClient();
 		runRMIServer(this.rmiPortForClientes, this.rmiPortForWorkers);
+		connectRMI();
 	}
 
 	private void runRMIServer(int rmiPortForClientes, int rmiPortForWorkers) {
@@ -71,8 +72,8 @@ public class Servidor {
 			registrySv = LocateRegistry.createRegistry(rmiPortForWorkers);
 
 			remoteFtpMan = (IFTPAction) UnicastRemoteObject.exportObject(new FTPAction(this.ftpPort, this.ftp),0);
-			remoteCliente = (IClientAction) UnicastRemoteObject.exportObject(new ClienteAction(this.redisClient),0);
-			remoteWorker = (IWorkerAction) UnicastRemoteObject.exportObject(new WorkerAction(this.redisClient, this.singleServerDir),0);
+			remoteCliente = (IClientAction) UnicastRemoteObject.exportObject(new ClienteAction(this.gatewayIp, this.gatewayPort),0);
+			remoteWorker = (IWorkerAction) UnicastRemoteObject.exportObject(new WorkerAction(this.gatewayIp, this.gatewayPort, this.singleServerDir),0);
 
 			registrySv.rebind("ftpAction", remoteFtpMan);
 			registryCli.rebind("clientAction", remoteCliente);
@@ -81,6 +82,8 @@ public class Servidor {
 			log.info("Servidor RMI:");
 			log.info("\t -> Para Clientes: " + registryCli.toString());
 			log.info("\t -> Para Workers: " + registrySv.toString());
+			this.rmiPortForClientes = rmiPortForClientes;
+			this.rmiPortForWorkers = rmiPortForWorkers;
 		} catch (RemoteException e) {
 			log.error("Error: Puertos " + rmiPortForClientes + "(Clientes) y " + rmiPortForWorkers + "(Workers) en uso.");
 			runRMIServer(++rmiPortForClientes, ++rmiPortForWorkers);
@@ -96,6 +99,10 @@ public class Servidor {
 			Map server = (Map) config.get("server");
 			this.myIp = server.get("ip").toString();
 
+			Map gateway = (Map) config.get("gateway");
+			this.gatewayIp = gateway.get("ip").toString();
+			this.gatewayPort = Integer.valueOf(gateway.get("port").toString());
+
 			Map rmi = (Map) config.get("rmi");
 			this.rmiPortForClientes = Integer.valueOf(rmi.get("initialPortForClientes").toString());
 			this.rmiPortForWorkers = Integer.valueOf(rmi.get("initialPortForWorkers").toString());
@@ -104,10 +111,6 @@ public class Servidor {
 			this.ftpPort = Integer.valueOf(ftp.get("port").toString());
 			this.myFTPDirectory = this.serverDirectory + ftp.get("directory").toString();
 
-			Map redis = (Map) config.get("redis");
-			this.redisIp = redis.get("ip").toString();
-			this.redisPort = Integer.valueOf(redis.get("port").toString());
-			this.redisPassword = redis.get("password").toString();
 		} catch (IOException e) {
 		}
 	}
@@ -124,9 +127,21 @@ public class Servidor {
 		DirectoryTools.checkOrCreateFolder(this.singleServerDir);
 	}
 
-	private void runRedisClient() {
-		this.redisClient = RedisClient.create("redis://"+this.redisPassword+"@"+this.redisIp+":"+this.redisPort);
-		log.info("Conectado a Redis exitosamente.");
+	private void connectRMI() {
+		try {
+			Thread.sleep(1000);
+			Registry workerRMI = LocateRegistry.getRegistry(this.gatewayIp, this.gatewayPort);
+			this.stubGateway = (IGatewayServidorAction) workerRMI.lookup("servidorAction");
+			String gatewayResp = this.stubGateway.helloGateway(this.rmiPortForClientes, this.rmiPortForWorkers);
+			if(!gatewayResp.isEmpty()){
+				log.info("Conectado al Gateway: " + this.gatewayIp + ":" + this.gatewayPort);
+			}
+		} catch (RemoteException | NotBoundException e) {
+			manageGatewayFall(this.gatewayIp, this.gatewayPort);
+			connectRMI();
+		} catch (InterruptedException e) {
+			throw new RuntimeException(e);
+		}
 	}
 
 	public static void main(String[] args) {

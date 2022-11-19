@@ -2,6 +2,10 @@
   "server": {
   			  "ip":"127.0.0.1"
   		},
+	"gateway": {
+		"ip":"127.0.0.1",
+		"port":"9300"
+	},
   "rmi": {
   			 "initialPortForClientes":"9101",
   			 "initialPortForWorkers":"9201"

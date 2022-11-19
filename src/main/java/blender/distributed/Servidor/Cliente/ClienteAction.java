@@ -1,55 +1,76 @@
 package blender.distributed.Servidor.Cliente;
 
-import blender.distributed.Servidor.SerializedObjectCodec;
-import blender.distributed.Servidor.ThreadServer;
+import blender.distributed.Gateway.Servidor.IGatewayServidorAction;
 import blender.distributed.Servidor.Trabajo.Trabajo;
-import io.lettuce.core.RedisClient;
-import io.lettuce.core.api.StatefulRedisConnection;
-import io.lettuce.core.api.sync.RedisCommands;
-import org.apache.commons.lang3.SerializationUtils;
+import blender.distributed.Servidor.Trabajo.TrabajoStatus;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.Executor;
-import java.util.concurrent.Executors;
+import java.rmi.NotBoundException;
+import java.rmi.RemoteException;
+import java.rmi.registry.LocateRegistry;
+import java.rmi.registry.Registry;
+import java.time.Duration;
+import java.time.LocalTime;
 
 public class ClienteAction implements IClientAction {
 	Logger log = LoggerFactory.getLogger(ClienteAction.class);
-	String redisIp;
-	int redisPort;
-	RedisClient redisClient;
-	byte[] listaTrabajosByte = SerializationUtils.serialize("listaTrabajos");
+	String gatewayIp;
+	int gatewayPort;
 
 
-	public ClienteAction(RedisClient redisClient) {
+	public ClienteAction(String gatewayIp, int gatewayPort) {
 		MDC.put("log.name", ClienteAction.class.getSimpleName());
-		this.redisClient = redisClient;
+		this.gatewayIp = gatewayIp;
+		this.gatewayPort = gatewayPort;
 	}
 
 	@Override
 	public byte[] renderRequest(Trabajo work) {
-		StatefulRedisConnection<String, Object> redisConnection = this.redisClient.connect(new SerializedObjectCodec());
-		RedisCommands<String, Object> syncCommands = redisConnection.sync();
-		syncCommands.hset("listaTrabajos", work.getId(), work);
-
-		CountDownLatch latch = new CountDownLatch(1);
-		List<ThreadServer> serverThread = new ArrayList<>();
-		serverThread.add(new ThreadServer(latch, this.redisClient, work));
-		Executor executor = Executors.newFixedThreadPool(serverThread.size());
-		for(final ThreadServer wt : serverThread) {
-			executor.execute(wt);
-		}
 		try {
-			latch.await();
-		} catch (InterruptedException e) {
-			throw new RuntimeException(e);
+			this.connectRMI().setTrabajo(work);
+
+			boolean salir = false;
+			LocalTime initTime = LocalTime.now();
+			log.info("Trabajo iniciado: " + work.getId());
+			log.info("Trabajando en: " + work.getBlendName() + " - Frames " + work.getStartFrame() + "-" + work.getEndFrame());
+			log.info("Tiempo inicio:\t" + initTime.toString());
+			Trabajo workFinished = work;
+			String workId = work.getId();
+			while (!salir) {
+				try {
+					workFinished = this.connectRMI().getTrabajo(workId);
+					if (workFinished != null && workFinished.getStatus() == TrabajoStatus.DONE && workFinished.getZipWithRenderedImages() != null) {
+						salir = true;
+					}
+
+					Thread.sleep(1000);
+				} catch (InterruptedException e) {
+				}
+			}
+			LocalTime finishTime = LocalTime.now();
+			log.info("Tiempo fin:\t" + finishTime.toString());
+			log.info("Tiempo tardado:\t\t" + Duration.between(initTime, finishTime).toSeconds() + " segundos.");
+			log.info("Trabajo completado: " + workFinished.getId());
+
+			this.connectRMI().delTrabajo(workFinished.getId());
+			return workFinished.getZipWithRenderedImages();
+		} catch (RemoteException | NullPointerException e) {
+			return renderRequest(work);
 		}
-		syncCommands.hdel("listaTrabajos", work.getId());
-		redisConnection.close();
-		return work.getZipWithRenderedImages();
+	}
+
+	private IGatewayServidorAction connectRMI() {
+		IGatewayServidorAction stubGateway = null;
+		try {
+			Thread.sleep(1000);
+			Registry workerRMI = LocateRegistry.getRegistry(this.gatewayIp, this.gatewayPort);
+			stubGateway = (IGatewayServidorAction) workerRMI.lookup("servidorAction");
+			return stubGateway;
+		} catch (RemoteException | NotBoundException | InterruptedException e) {
+			log.error("Error al conectar con el Gateway " + this.gatewayIp + ":" + this.gatewayPort);
+			return connectRMI();
+		}
 	}
 }
