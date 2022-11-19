@@ -1,0 +1,16 @@
+version: '3.8'
+networks:
+  default:
+    driver: bridge
+services:
+  redis:
+    container_name: redis
+    image: redis:7.0
+    restart: always
+    entrypoint: redis-server --appendonly yes --requirepass th3_f0rce_m4y_b3_w1th_y0u --maxmemory 0 --maxmemory-policy allkeys-lru
+    networks:
+      - default
+    ports:
+      - "6379:6379"
+    volumes:
+      - $DOCKERDIR/appdata/redis/data:/data

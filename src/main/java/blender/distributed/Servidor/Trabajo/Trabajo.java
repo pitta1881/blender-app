@@ -12,7 +12,7 @@ public class Trabajo implements Serializable {
 	private int startFrame;
 	private int endFrame;
 	private byte[] zipWithRenderedImages = null;
-	private final int frameDivision = 500;
+	private final int frameDivision = 100;
 	private ArrayList<TrabajoPart> listaPartes;
 
 

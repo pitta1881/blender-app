@@ -1,15 +1,15 @@
 package blender.distributed.Worker;
 
-import blender.distributed.Gateway.Servidor.IServidorWorkerAction;
+import blender.distributed.Gateway.Servidor.IGatewayWorkerAction;
 
 import java.rmi.RemoteException;
 
 public class WorkerAliveThread implements Runnable{
 
-	private IServidorWorkerAction stubGateway;
+	private IGatewayWorkerAction stubGateway;
 	private String workerName;
 	
-	public WorkerAliveThread(IServidorWorkerAction stubServer, String workerName) {
+	public WorkerAliveThread(IGatewayWorkerAction stubServer, String workerName) {
 		this.stubGateway = stubServer;
 		this.workerName = workerName;
 	}

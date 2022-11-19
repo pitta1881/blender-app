@@ -2,13 +2,21 @@
   "server": {
   			  "ip":"127.0.0.1"
   		},
+	"gateway": {
+		"ip":"127.0.0.1",
+		"port":"9300"
+	},
   "rmi": {
   			 "initialPortForClientes":"9101",
-  			 "initialPortForWorkers":"9201",
-	  		 "initialPortForGateway":"9301"
+  			 "initialPortForWorkers":"9201"
   		},
   "ftp":{
   			 "directory" : "\\FTP\\",
   			 "port" : "2121"
-  }		
+  },
+	"redis":{
+		"ip" : "127.0.0.1",
+		"port" : "6379",
+		"password": "th3_f0rce_m4y_b3_w1th_y0u"
+	}
 }

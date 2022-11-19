@@ -1,6 +1,6 @@
 package blender.distributed.Cliente;
 
-import blender.distributed.Gateway.Servidor.IServidorClientAction;
+import blender.distributed.Gateway.Servidor.IGatewayClientAction;
 import blender.distributed.Servidor.Trabajo.Trabajo;
 import blender.distributed.SharedTools.DirectoryTools;
 import com.google.gson.Gson;
@@ -21,9 +21,11 @@ import java.rmi.registry.LocateRegistry;
 import java.rmi.registry.Registry;
 import java.util.Map;
 
+import static blender.distributed.SharedTools.Tools.manageGatewayFall;
+
 public class Cliente{
 	static Logger log = LoggerFactory.getLogger(Cliente.class);
-	IServidorClientAction stubGateway;
+	IGatewayClientAction stubGateway;
 	File file;
 	byte[] fileContent;
 	private String gatewayIp;
@@ -39,7 +41,7 @@ public class Cliente{
 	public void connectRMI() {
 		try {
 			Registry clienteRMI = LocateRegistry.getRegistry(this.gatewayIp, this.gatewayPort);
-			this.stubGateway = (IServidorClientAction) clienteRMI.lookup("clientAction");
+			this.stubGateway = (IGatewayClientAction) clienteRMI.lookup("clientAction");
 			try {
 				String myIp = Inet4Address.getLocalHost().getHostAddress();
 				String myHostName = Inet4Address.getLocalHost().getCanonicalHostName();
@@ -51,7 +53,7 @@ public class Cliente{
 				e1.printStackTrace();
 			}
 		} catch (RemoteException | NotBoundException e) {
-			manageServerFall();
+			manageGatewayFall(this.gatewayIp, this.gatewayPort);
 			connectRMI();
 		}
 	}
@@ -111,16 +113,6 @@ public class Cliente{
 		} catch (IOException e) {
 			log.error("Error Archivo Config!");
 		} 
-	}
-
-	private void manageServerFall(){
-		log.error("Error al conectar con el Gateway " + this.gatewayIp + ":" + this.gatewayPort);
-		try {
-			log.info("Reintentando conectar...");
-			Thread.sleep(2000);
-		} catch (InterruptedException e) {
-			throw new RuntimeException(e);
-		}
 	}
 
 }
