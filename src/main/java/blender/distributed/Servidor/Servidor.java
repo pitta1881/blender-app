@@ -1,16 +1,18 @@
 package blender.distributed.Servidor;
 
-import blender.distributed.Gateway.Servidor.IGatewayServidorAction;
+import blender.distributed.Records.RGateway;
 import blender.distributed.Servidor.Cliente.ClienteAction;
-import blender.distributed.Servidor.Cliente.IClientAction;
-import blender.distributed.Servidor.FTP.FTPAction;
-import blender.distributed.Servidor.FTP.IFTPAction;
-import blender.distributed.Servidor.FTP.ServerFtp;
-import blender.distributed.Servidor.Trabajo.Trabajo;
+import blender.distributed.Servidor.Cliente.IClienteAction;
+import blender.distributed.Servidor.Threads.SendPingAliveThread;
 import blender.distributed.Servidor.Worker.IWorkerAction;
 import blender.distributed.Servidor.Worker.WorkerAction;
 import blender.distributed.SharedTools.DirectoryTools;
+import blender.distributed.SharedTools.RefreshListaGatewaysThread;
 import com.google.gson.Gson;
+import com.google.gson.reflect.TypeToken;
+import io.lettuce.core.RedisClient;
+import io.lettuce.core.api.StatefulRedisConnection;
+import io.lettuce.core.api.sync.RedisCommands;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
@@ -18,49 +20,56 @@ import org.slf4j.MDC;
 import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
-import java.rmi.NotBoundException;
 import java.rmi.RemoteException;
 import java.rmi.registry.LocateRegistry;
 import java.rmi.registry.Registry;
 import java.rmi.server.UnicastRemoteObject;
-import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 
-import static blender.distributed.SharedTools.Tools.manageGatewayFall;
+import static blender.distributed.Gateway.Tools.connectRandomGatewayRMIForServidor;
 
 public class Servidor {
 	//General settings
 	Logger log = LoggerFactory.getLogger(Servidor.class);
 	String serverDirectory = System.getProperty("user.dir")+"\\src\\main\\resources\\Servidor\\";
 	String singleServerDir;
-	String myFTPDirectory;
-	private String myIp;
-	private ArrayList<Trabajo> listaTrabajos = new ArrayList<>();
 
 	//RMI
 	private int rmiPortForClientes;
 	private int rmiPortForWorkers;
 	Registry registryCli;
 	Registry registrySv;
-	private IClientAction remoteCliente;
-	private IFTPAction remoteFtpMan;
+	private IClienteAction remoteCliente;
 	private IWorkerAction remoteWorker;
 
-	//Ftp Related
-	private int ftpPort;
-	ServerFtp ftp;
-
-	IGatewayServidorAction stubGateway;
-	private String gatewayIp;
-	private int gatewayPort;
+	private String redisPubIp;
+	private int redisPubPort;
+	private String redisPubPassword;
+	List<RGateway> listaGateways;
+	String uuid;
+	RedisClient redisPubClient;
 
 
 	public Servidor() {
 		MDC.put("log.name", this.getClass().getSimpleName());
 		readConfigFile();
-		runFTPServer();
+		runRedisPubClient();
 		runRMIServer(this.rmiPortForClientes, this.rmiPortForWorkers);
-		connectRMI();
+		createThreadRefreshListaGateways();
+		helloGateway();
+		createThreadSendPingAlive();
+	}
+
+	private void createThreadSendPingAlive() {
+		SendPingAliveThread aliveT = new SendPingAliveThread(this.uuid, this.listaGateways, this.rmiPortForClientes, this.rmiPortForWorkers);
+		Thread threadAliveT = new Thread(aliveT);
+		threadAliveT.start();
+	}
+	private void createThreadRefreshListaGateways() {
+		RefreshListaGatewaysThread listaGatewaysT = new RefreshListaGatewaysThread(this.listaGateways, this.redisPubClient);
+		Thread threadAliveT = new Thread(listaGatewaysT);
+		threadAliveT.start();
 	}
 
 	private void runRMIServer(int rmiPortForClientes, int rmiPortForWorkers) {
@@ -71,12 +80,10 @@ public class Servidor {
 			registryCli = LocateRegistry.createRegistry(rmiPortForClientes);
 			registrySv = LocateRegistry.createRegistry(rmiPortForWorkers);
 
-			remoteFtpMan = (IFTPAction) UnicastRemoteObject.exportObject(new FTPAction(this.ftpPort, this.ftp),0);
-			remoteCliente = (IClientAction) UnicastRemoteObject.exportObject(new ClienteAction(this.gatewayIp, this.gatewayPort),0);
-			remoteWorker = (IWorkerAction) UnicastRemoteObject.exportObject(new WorkerAction(this.gatewayIp, this.gatewayPort, this.singleServerDir),0);
+			remoteCliente = (IClienteAction) UnicastRemoteObject.exportObject(new ClienteAction(this.listaGateways),0);
+			remoteWorker = (IWorkerAction) UnicastRemoteObject.exportObject(new WorkerAction(this.listaGateways, this.singleServerDir),0);
 
-			registrySv.rebind("ftpAction", remoteFtpMan);
-			registryCli.rebind("clientAction", remoteCliente);
+			registryCli.rebind("clienteAction", remoteCliente);
 			registrySv.rebind("workerAction", remoteWorker);
 
 			log.info("Servidor RMI:");
@@ -95,29 +102,18 @@ public class Servidor {
 		Map config;
 		try {
 			config = gson.fromJson(new FileReader(this.serverDirectory+"config.json"), Map.class);
-			
-			Map server = (Map) config.get("server");
-			this.myIp = server.get("ip").toString();
-
-			Map gateway = (Map) config.get("gateway");
-			this.gatewayIp = gateway.get("ip").toString();
-			this.gatewayPort = Integer.valueOf(gateway.get("port").toString());
 
 			Map rmi = (Map) config.get("rmi");
 			this.rmiPortForClientes = Integer.valueOf(rmi.get("initialPortForClientes").toString());
 			this.rmiPortForWorkers = Integer.valueOf(rmi.get("initialPortForWorkers").toString());
 
-			Map ftp = (Map) config.get("ftp");
-			this.ftpPort = Integer.valueOf(ftp.get("port").toString());
-			this.myFTPDirectory = this.serverDirectory + ftp.get("directory").toString();
+			Map redisPub = (Map) config.get("redis_pub");
+			this.redisPubIp = redisPub.get("ip").toString();
+			this.redisPubPort = Integer.valueOf(redisPub.get("port").toString());
+			this.redisPubPassword = redisPub.get("password").toString();
 
 		} catch (IOException e) {
 		}
-	}
-
-	private void runFTPServer() {
-		this.ftp = new ServerFtp(this.ftpPort, this.myFTPDirectory);
-		log.info("FTP Configurado correctamente. Listo para usar en puerto:"+this.ftpPort+". Compartiendo carpeta: "+this.myFTPDirectory);
 	}
 
 	private void createSingleServerDir(int portWorkerUsed){
@@ -127,20 +123,30 @@ public class Servidor {
 		DirectoryTools.checkOrCreateFolder(this.singleServerDir);
 	}
 
-	private void connectRMI() {
+	private void runRedisPubClient() {
+		this.redisPubClient = RedisClient.create("redis://"+this.redisPubPassword+"@"+this.redisPubIp+":"+this.redisPubPort);
+		log.info("Conectado a Redis Público exitosamente.");
+		StatefulRedisConnection redisConnection = this.redisPubClient.connect();
+		RedisCommands commands = redisConnection.sync();
+		this.listaGateways = new Gson().fromJson(String.valueOf(commands.hvals("listaGateways")), new TypeToken<List<RGateway>>(){}.getType());
+		redisConnection.close();
+	}
+
+	private void helloGateway() {
 		try {
-			Thread.sleep(1000);
-			Registry workerRMI = LocateRegistry.getRegistry(this.gatewayIp, this.gatewayPort);
-			this.stubGateway = (IGatewayServidorAction) workerRMI.lookup("servidorAction");
-			String gatewayResp = this.stubGateway.helloGateway(this.rmiPortForClientes, this.rmiPortForWorkers);
-			if(!gatewayResp.isEmpty()){
-				log.info("Conectado al Gateway: " + this.gatewayIp + ":" + this.gatewayPort);
+			String uuid = connectRandomGatewayRMIForServidor(this.listaGateways).helloGatewayFromServidor(this.rmiPortForClientes, this.rmiPortForWorkers);
+			if(!uuid.isEmpty()){
+				log.info("Conectado a un Gateway. UUID Asignado: " + uuid);
+				this.uuid = uuid;
 			}
-		} catch (RemoteException | NotBoundException e) {
-			manageGatewayFall(this.gatewayIp, this.gatewayPort);
-			connectRMI();
-		} catch (InterruptedException e) {
-			throw new RuntimeException(e);
+		} catch (RemoteException | NullPointerException e) {
+			e.printStackTrace();
+			try {
+				Thread.sleep(1000);
+			} catch (InterruptedException ex) {
+				throw new RuntimeException(ex);
+			}
+			helloGateway();
 		}
 	}
 

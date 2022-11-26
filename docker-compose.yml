@@ -3,11 +3,22 @@ networks:
   default:
     driver: bridge
 services:
-  redis:
-    container_name: redis
+  redis_priv:
+    container_name: redis_priv
     image: redis:7.0
     restart: always
     entrypoint: redis-server --appendonly yes --requirepass th3_f0rce_m4y_b3_w1th_y0u --maxmemory 0 --maxmemory-policy allkeys-lru
+    networks:
+      - default
+    ports:
+      - "6380:6379"
+    volumes:
+      - $DOCKERDIR/appdata/redis/data:/data
+  redis_pub:
+    container_name: redis_pub
+    image: redis:7.0
+    restart: always
+    entrypoint: redis-server --appendonly yes --requirepass public --maxmemory 0 --maxmemory-policy allkeys-lru
     networks:
       - default
     ports:

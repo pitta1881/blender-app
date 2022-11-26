@@ -1,94 +1,160 @@
 package blender.distributed.Gateway.Servidor;
 
-import blender.distributed.Gateway.PairIpPortCPortW;
-import blender.distributed.Gateway.PairParteLastping;
-import blender.distributed.Servidor.SerializedObjectCodec;
-import blender.distributed.Servidor.Trabajo.Trabajo;
+import blender.distributed.Records.RServidor;
+import com.google.gson.Gson;
+import com.google.gson.reflect.TypeToken;
 import io.lettuce.core.RedisClient;
 import io.lettuce.core.api.StatefulRedisConnection;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
 
+import java.lang.reflect.Type;
+import java.rmi.RemoteException;
 import java.rmi.server.ServerNotActiveException;
-import java.util.ArrayList;
+import java.time.LocalTime;
 import java.util.List;
+import java.util.UUID;
 
 import static java.rmi.server.RemoteServer.getClientHost;
 
 public class GatewayServidorAction implements IGatewayServidorAction {
 	Logger log = LoggerFactory.getLogger(GatewayServidorAction.class);
-	RedisClient redisClient;
-	ArrayList<PairIpPortCPortW> listaServidores;
+	RedisClient redisPrivClient;
+	List<RServidor> listaServidores;
+	Gson gson = new Gson();
+	Type RServidorType = new TypeToken<RServidor>(){}.getType();
 
-	public GatewayServidorAction(RedisClient redisClient, ArrayList<PairIpPortCPortW> listaServidores) {
+	public GatewayServidorAction(RedisClient redisPrivClient, List<RServidor> listaServidores) {
 		MDC.put("log.name", GatewayServidorAction.class.getSimpleName());
-		this.redisClient = redisClient;
+		this.redisPrivClient = redisPrivClient;
 		this.listaServidores = listaServidores;
 	}
-
 	@Override
-	public String helloGateway(int rmiPortForClientes, int rmiPortForWorkers) {
-		synchronized (this.listaServidores){
-			try {
-				PairIpPortCPortW pipp = new PairIpPortCPortW(getClientHost(),rmiPortForClientes, rmiPortForWorkers);
-				log.info("Registrando nuevo servidor: " + pipp);
-				this.listaServidores.add(pipp);
-			} catch (ServerNotActiveException e) {
-				throw new RuntimeException(e);
-			}
+	public String helloGatewayFromServidor(int rmiPortForClientes, int rmiPortForWorkers) {
+		String uuid = UUID.randomUUID().toString();
+		RServidor recordServidor = null;
+		try {
+			recordServidor = new RServidor(uuid, getClientHost(), rmiPortForClientes, rmiPortForWorkers, LocalTime.now().toString());
+		} catch (ServerNotActiveException e) {
+			throw new RuntimeException(e);
 		}
-		return "OK";
-	}
-
-	@Override
-	public PairParteLastping getWorker(String workerName) {
-		StatefulRedisConnection<String, Object> redisConnection = this.redisClient.connect(new SerializedObjectCodec());
-		PairParteLastping workerRecord = (PairParteLastping) redisConnection.sync().hget("listaWorkers", workerName);
+		StatefulRedisConnection redisConnection = this.redisPrivClient.connect();
+		redisConnection.sync().hset("listaServidores", uuid ,gson.toJson(recordServidor));
+		log.info("Registrado nuevo servidor: " + recordServidor);
 		redisConnection.close();
-		return workerRecord;
+		return uuid;
+	}
+	@Override
+	public void pingAliveFromServidor(String uuidServidor, int rmiPortForClientes, int rmiPortForWorkers) {
+		RServidor recordServidor = null;
+		try {
+			recordServidor = new RServidor(uuidServidor, getClientHost(),rmiPortForClientes, rmiPortForWorkers, LocalTime.now().toString());
+		} catch (ServerNotActiveException e) {
+			throw new RuntimeException(e);
+		}
+		String json = gson.toJson(recordServidor);
+		StatefulRedisConnection redisConnection = this.redisPrivClient.connect();
+		redisConnection.sync().hset("listaServidores", uuidServidor ,json);
+		redisConnection.close();
+	}
+	@Override
+	public String getWorker(String workerName) {
+		StatefulRedisConnection redisConnection = this.redisPrivClient.connect();
+		String workerRecordJson = String.valueOf(redisConnection.sync().hget("listaWorkers", workerName));
+		redisConnection.close();
+		return workerRecordJson;
+	}
+	@Override
+	public String getAllWorkers() throws RemoteException {
+		StatefulRedisConnection redisConnection = this.redisPrivClient.connect();
+		String listaWorkersJson = String.valueOf(redisConnection.sync().hvals("listaWorkers"));
+		redisConnection.close();
+		return listaWorkersJson;
 	}
 
 	@Override
-	public void setWorker(String workerName, PairParteLastping workerRecord) {
-		StatefulRedisConnection<String, Object> redisConnection = this.redisClient.connect(new SerializedObjectCodec());
-		redisConnection.sync().hset("listaWorkers", workerName, workerRecord);
+	public void setWorker(String workerName, String recordWorkerJson) throws RemoteException {
+		StatefulRedisConnection redisConnection = this.redisPrivClient.connect();
+		redisConnection.sync().hset("listaWorkers", workerName, recordWorkerJson);
 		redisConnection.close();
 	}
 
 	@Override
 	public void delWorker(String workerName) {
-		StatefulRedisConnection<String, Object> redisConnection = this.redisClient.connect(new SerializedObjectCodec());
+		StatefulRedisConnection redisConnection = this.redisPrivClient.connect();
 		redisConnection.sync().hdel("listaWorkers", workerName);
 		redisConnection.close();
 	}
+	@Override
+	public String getTrabajo(String uuidTrabajo) {
+		StatefulRedisConnection redisConnection = this.redisPrivClient.connect();
+		String trabajoRecordJson = String.valueOf(redisConnection.sync().hget("listaTrabajos", uuidTrabajo));
+		redisConnection.close();
+		return trabajoRecordJson;
+	}
+	@Override
+	public String getAllTrabajos() {
+		StatefulRedisConnection redisConnection = this.redisPrivClient.connect();
+		String listaTrabajosJson = String.valueOf(redisConnection.sync().hvals("listaTrabajos"));
+		redisConnection.close();
+		return listaTrabajosJson;
+	}
+	@Override
+	public void setTrabajo(String uuidTrabajo, String recordTrabajoJson) {
+		StatefulRedisConnection redisConnection = this.redisPrivClient.connect();
+		redisConnection.sync().hset("listaTrabajos", uuidTrabajo, recordTrabajoJson);
+		redisConnection.close();
+	}
+	@Override
+	public void delTrabajo(String uuidTrabajo) {
+		StatefulRedisConnection redisConnection = this.redisPrivClient.connect();
+		redisConnection.sync().hdel("listaTrabajos", uuidTrabajo);
+		redisConnection.close();
+	}
+	@Override
+	public String getParte(String uuidParte) {
+		StatefulRedisConnection redisConnection = this.redisPrivClient.connect();
+		String parteRecordJson = String.valueOf(redisConnection.sync().hget("listaPartes", uuidParte));
+		redisConnection.close();
+		return parteRecordJson;
+	}
+	@Override
+	public List<String> getAllPartes() {
+		StatefulRedisConnection redisConnection = this.redisPrivClient.connect();
+		List<String> listaPartesJson = redisConnection.sync().hvals("listaPartes");
+		redisConnection.close();
+		return listaPartesJson;
+	}
+	@Override
+	public void setParte(String uuidParte, String recordParteJson) {
+		StatefulRedisConnection redisConnection = this.redisPrivClient.connect();
+		redisConnection.sync().hset("listaPartes", uuidParte, recordParteJson);
+		redisConnection.close();
+	}
+	@Override
+	public void delParte(String uuidParte) {
+		StatefulRedisConnection redisConnection = this.redisPrivClient.connect();
+		redisConnection.sync().hdel("listaPartes", uuidParte);
+		redisConnection.close();
+	}
+	@Override
+	public String storeBlendFile(String blendName, byte[] blendFile) {
+		//TODO: store somewhere this blendFile
+		return "https://example.cloud.com/"+blendName+".blend";
+	}
 
 	@Override
-	public Trabajo getTrabajo(String workId) {
-		StatefulRedisConnection<String, Object> redisConnection = this.redisClient.connect(new SerializedObjectCodec());
-		Trabajo trabajo = (Trabajo) redisConnection.sync().hget("listaTrabajos", workId);
-		redisConnection.close();
-		return trabajo;
-	}
-	@Override
-	public List<Object> getAllTrabajos() {
-		StatefulRedisConnection<String, Object> redisConnection = this.redisClient.connect(new SerializedObjectCodec());
-		List<Object> trabajos = redisConnection.sync().hvals("listaTrabajos");
-		redisConnection.close();
-		return trabajos;
-	}
-	@Override
-	public void setTrabajo(Trabajo work) {
-		StatefulRedisConnection<String, Object> redisConnection = this.redisClient.connect(new SerializedObjectCodec());
-		redisConnection.sync().hset("listaTrabajos", work.getId(), work);
-		redisConnection.close();
+	public String storeZipFile(String zipName, byte[] zipFile) throws RemoteException {
+		//TODO: store somewhere this zipFile
+		return "https://example.cloud.com/"+zipName+".zip";
 	}
 
 	@Override
-	public void delTrabajo(String workId) {
-		StatefulRedisConnection<String, Object> redisConnection = this.redisClient.connect(new SerializedObjectCodec());
-		redisConnection.sync().hdel("listaTrabajos", workId);
-		redisConnection.close();
+	public byte[] getZipFile(String uuidParte) {
+		//TODO: get stored zip file uuidParte.zip
+		return new byte[0];
 	}
 
 }
+

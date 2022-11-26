@@ -1,62 +1,68 @@
 package blender.distributed.Cliente;
 
-import blender.distributed.Gateway.Servidor.IGatewayClientAction;
-import blender.distributed.Servidor.Trabajo.Trabajo;
-import blender.distributed.SharedTools.DirectoryTools;
+import blender.distributed.Cliente.Threads.CheckFinishedTrabajo;
+import blender.distributed.Records.RGateway;
+import blender.distributed.Records.RTrabajo;
+import blender.distributed.Servidor.Cliente.IClienteAction;
+import blender.distributed.SharedTools.RefreshListaGatewaysThread;
 import com.google.gson.Gson;
+import com.google.gson.reflect.TypeToken;
+import io.lettuce.core.RedisClient;
+import io.lettuce.core.api.StatefulRedisConnection;
+import io.lettuce.core.api.sync.RedisCommands;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
 
 import java.io.File;
-import java.io.FileOutputStream;
 import java.io.FileReader;
 import java.io.IOException;
-import java.net.Inet4Address;
-import java.net.UnknownHostException;
+import java.lang.reflect.Type;
 import java.nio.file.Files;
-import java.rmi.NotBoundException;
 import java.rmi.RemoteException;
-import java.rmi.registry.LocateRegistry;
-import java.rmi.registry.Registry;
+import java.util.List;
 import java.util.Map;
 
-import static blender.distributed.SharedTools.Tools.manageGatewayFall;
+import static blender.distributed.Cliente.Tools.connectRandomGatewayRMI;
 
 public class Cliente{
 	static Logger log = LoggerFactory.getLogger(Cliente.class);
-	IGatewayClientAction stubGateway;
+	IClienteAction stubGateway;
 	File file;
 	byte[] fileContent;
-	private String gatewayIp;
-	private int gatewayPort;
 	String clienteDirectory = System.getProperty("user.dir")+"\\src\\main\\resources\\Cliente\\";
 	String myRenderedImages;
+	List<RGateway> listaGateways;
+	RedisClient redisPubClient;
+	private String redisPubIp;
+	private int redisPubPort;
+	private String redisPubPassword;
+	Gson gson = new Gson();
+	Type RTrabajoType = new TypeToken<RTrabajo>(){}.getType();
+
 
 	public Cliente() {
 		readConfigFile();
+		runRedisPubClient();
+		createThreadRefreshListaGateways();
 		MDC.put("log.name", Cliente.class.getSimpleName());
 	}
-	
-	public void connectRMI() {
-		try {
-			Registry clienteRMI = LocateRegistry.getRegistry(this.gatewayIp, this.gatewayPort);
-			this.stubGateway = (IGatewayClientAction) clienteRMI.lookup("clientAction");
-			try {
-				String myIp = Inet4Address.getLocalHost().getHostAddress();
-				String myHostName = Inet4Address.getLocalHost().getCanonicalHostName();
-				String gatewayResp = this.stubGateway.helloGateway();
-				if(!gatewayResp.isEmpty()) {
-					log.info("Conectado al Gateway: " + this.gatewayIp + ":" + this.gatewayPort);
-				}
-			} catch (UnknownHostException e1) {
-				e1.printStackTrace();
-			}
-		} catch (RemoteException | NotBoundException e) {
-			manageGatewayFall(this.gatewayIp, this.gatewayPort);
-			connectRMI();
-		}
+
+	private void createThreadRefreshListaGateways() {
+		RefreshListaGatewaysThread listaGatewaysT = new RefreshListaGatewaysThread(this.listaGateways, this.redisPubClient);
+		Thread threadAliveT = new Thread(listaGatewaysT);
+		threadAliveT.start();
 	}
+
+	private void runRedisPubClient() {
+		this.redisPubClient = RedisClient.create("redis://"+this.redisPubPassword+"@"+this.redisPubIp+":"+this.redisPubPort);
+		log.info("Conectado a Redis Público exitosamente.");
+		StatefulRedisConnection redisConnection = this.redisPubClient.connect();
+		RedisCommands commands = redisConnection.sync();
+		this.listaGateways = new Gson().fromJson(String.valueOf(commands.hvals("listaGateways")), new TypeToken<List<RGateway>>(){}.getType());
+		redisConnection.close();
+	}
+
 	public void setFile(File f) {
 		try {
 			this.file = f;
@@ -65,32 +71,18 @@ public class Cliente{
 			e.printStackTrace();
 		}
 	}
-	public String enviarFile(int startFrame, int endFrame) {
-		connectRMI();
+	public void enviarFile(int startFrame, int endFrame) {
 		if(this.file != null) {
 			log.info("Enviando el archivo: "+this.file.getName());
-			Trabajo work = new Trabajo(this.fileContent, file.getName(), startFrame, endFrame);
 			try {
-				byte[] zipReturnedBytes = this.stubGateway.renderRequest(work);
-				if(zipReturnedBytes.length < 100) {
-					return "Ha ocurrido un error. Por favor intentelo denuevo mas tarde";
-				}
-				DirectoryTools.checkOrCreateFolder(this.myRenderedImages);
-				File zipResult = new File(this.myRenderedImages + "\\"+file.getName()+".zip");
-				try (FileOutputStream fos = new FileOutputStream(zipResult)) {
-					fos.write(zipReturnedBytes);
-					log.info("Exito: Archivo "+file.getName()+".zip recibido!");
-				} catch (Exception e) {
-					log.error("ERROR: " + e.getMessage());
-				}
-				return zipResult.getAbsolutePath();
+				String recordTrabajoJson = connectRandomGatewayRMI(this.listaGateways).renderRequest(this.fileContent, file.getName(), startFrame, endFrame);
+				RTrabajo recordTrabajo = gson.fromJson(recordTrabajoJson, RTrabajoType);
+				createThreadCheckFinishedTrabajo(recordTrabajo);
 			} catch (RemoteException e) {
 				log.error("Error: " + e.getMessage());
-				return "Ha ocurrido un error con la conexión al servidor.";
 			}
 		}else {
 			log.error("Error: Archivo no cargado");
-			return "Error";
 		}
 	}
 	public boolean isReady() {
@@ -103,9 +95,10 @@ public class Cliente{
 		try {
 			config = gson.fromJson(new FileReader(this.clienteDirectory+"config.json"), Map.class);
 
-			Map gateway = (Map) config.get("gateway");
-			this.gatewayIp = gateway.get("ip").toString();
-			this.gatewayPort = Integer.valueOf(gateway.get("port").toString());
+			Map redisPub = (Map) config.get("redis_pub");
+			this.redisPubIp = redisPub.get("ip").toString();
+			this.redisPubPort = Integer.valueOf(redisPub.get("port").toString());
+			this.redisPubPassword = redisPub.get("password").toString();
 
 			Map paths = (Map) config.get("paths");
 			this.myRenderedImages = this.clienteDirectory + paths.get("renderedImages");
@@ -113,6 +106,12 @@ public class Cliente{
 		} catch (IOException e) {
 			log.error("Error Archivo Config!");
 		} 
+	}
+
+	private void createThreadCheckFinishedTrabajo(RTrabajo recordTrabajo) {
+		CheckFinishedTrabajo checkFinishedTrabajoT = new CheckFinishedTrabajo(this.listaGateways, recordTrabajo);
+		Thread threadListaT = new Thread(checkFinishedTrabajoT);
+		threadListaT.start();
 	}
 
 }

@@ -1,10 +1,13 @@
 {
-	"gateway": {
-		"ip":"127.0.0.1",
-		"port":"9200"
+	"redis_pub":{
+		"ip" : "127.0.0.1",
+		"port" : "6379",
+		"password": "public"
 	},
   "paths": {
+	  		  "urlBlenderPortable": "https://mirror.clarkson.edu/blender/release/Blender3.3/blender-3.3.1-windows-x64.zip",
   			  "blenderExe": "\\blender-windows\\blender.exe",
+	  		  "blenderDir": "\\blender-windows\\",
 	          "worksDir": "\\Works\\",
   			  "rendersDir": "\\RenderedFiles\\",
   			  "blendDir": "\\BlendFile\\",

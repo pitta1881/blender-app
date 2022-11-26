@@ -1,14 +1,19 @@
 package blender.distributed.Worker;
 
-import blender.distributed.Gateway.Servidor.IGatewayWorkerAction;
-import blender.distributed.Servidor.Trabajo.PairTrabajoParte;
-import blender.distributed.Servidor.Trabajo.Trabajo;
-import blender.distributed.Servidor.Trabajo.TrabajoPart;
+import blender.distributed.Records.RGateway;
+import blender.distributed.Records.RTrabajoParte;
 import blender.distributed.SharedTools.DirectoryTools;
-import blender.distributed.Worker.FTP.ClientFTP;
+import blender.distributed.SharedTools.RefreshListaGatewaysThread;
+import blender.distributed.Worker.Threads.SendPingAliveThread;
+import blender.distributed.Worker.Threads.WorkerProcessThread;
 import com.google.gson.Gson;
+import com.google.gson.reflect.TypeToken;
+import io.lettuce.core.RedisClient;
+import io.lettuce.core.api.StatefulRedisConnection;
+import io.lettuce.core.api.sync.RedisCommands;
 import net.lingala.zip4j.ZipFile;
 import net.lingala.zip4j.exception.ZipException;
+import org.apache.commons.io.FileUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
@@ -17,12 +22,11 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.FileReader;
 import java.io.IOException;
+import java.lang.reflect.Type;
 import java.net.Inet4Address;
+import java.net.URL;
 import java.nio.file.Files;
-import java.rmi.NotBoundException;
 import java.rmi.RemoteException;
-import java.rmi.registry.LocateRegistry;
-import java.rmi.registry.Registry;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -30,89 +34,102 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 
-import static blender.distributed.SharedTools.Tools.manageGatewayFall;
+import static blender.distributed.Worker.Tools.connectRandomGatewayRMI;
 
 
-public class Worker implements Runnable {
+public class Worker {
 	//General
 	Logger log = LoggerFactory.getLogger(Worker.class);
 	String blenderPortableZip;
 	String workerDir = System.getProperty("user.dir") + "\\src\\main\\resources\\Worker\\";
-	String workerName = "worker1663802677984"; //"worker1663802677984"; //"worker1663802677985";
-	String singleWorkerDir = workerDir+"\\"+workerName+"\\"; //"\\worker"+System.currentTimeMillis()+"\\";
+	String workerName = "worker1663802677985"; //"worker1663802677984"; //"worker1663802677985"; //"worker"+System.currentTimeMillis();
+	String singleWorkerDir = workerDir+"\\"+workerName+"\\"; ;
+	String urlBlenderPortable;
 	String blenderExe;
+	String blenderDir;
 	String worksDir;
 	String blendDir;
 	String rendersDir;
 	String localIp;
-	IGatewayWorkerAction stubGateway;
-	//ftp
-	ClientFTP cliFtp;
-	int serverFTPPort;
 	//server
-	private String gatewayIp;
-	private int gatewayPort;
-	Thread threadAlive = null;
+	RedisClient redisPubClient;
+	private String redisPubIp;
+	private int redisPubPort;
+	private String redisPubPassword;
+	List<RGateway> listaGateways = new ArrayList<>();
+	Gson gson = new Gson();
+	Type RListaGatewayType = new TypeToken<List<RGateway>>(){}.getType();
+	Type RTrabajoParteType = new TypeToken<RTrabajoParte>(){}.getType();
 
-	public void startWorker() {
-		log.info("<-- [STEP 1] - LEYENDO ARCHIVO DE CONFIGURACION \t\t\t-->");
+	public Worker () {
+		MDC.put("log.name", this.getClass().getSimpleName());
+		log.info("Iniciando Worker -> " + this.workerName);
 		readConfigFile();
-		MDC.put("log.name", Worker.class.getSimpleName() + "-" + this.localIp);
-		log.info("<-- [STEP 2] - REALIZANDO CONEXION RMI \t\t\t-->");
-		connectRMI();
-		log.info("<-- [STEP 3] - LANZANDO THREAD ALIVE \t\t\t-->");
-		lanzarThread();
-		log.info("<-- [STEP 4] - REVISANDO ARCHIVOS NECESARIOS\t-->");
+		runRedisPubClient();
+		createThreadRefreshListaGateways();
+		createThreadSendPingAlive();
 		if (checkNeededFiles()) {
-			log.info("<-- [STEP 5] - ESPERANDO TRABAJOS\t\t\t-->");
 			getWork();
 		} else {
 			log.debug("Error inesperado!");
 		}
 	}
 
-	private void lanzarThread() {
-		if(this.threadAlive != null){
-			this.threadAlive.interrupt();
-		}
-		WorkerAliveThread alive = new WorkerAliveThread(this.stubGateway, this.workerName);
-		this.threadAlive = new Thread(alive);
-		this.threadAlive.start();
+	private void createThreadSendPingAlive() {
+		SendPingAliveThread aliveT = new SendPingAliveThread(this.listaGateways, this.workerName);
+		Thread threadAliveT = new Thread(aliveT);
+		threadAliveT.start();
+	}
+	private void createThreadRefreshListaGateways() {
+		RefreshListaGatewaysThread listaGatewaysT = new RefreshListaGatewaysThread(this.listaGateways, this.redisPubClient);
+		Thread threadAliveT = new Thread(listaGatewaysT);
+		threadAliveT.start();
 	}
 
 	private void getWork() {
-		PairTrabajoParte pairTP;
-		Trabajo trabajo = null;
-		TrabajoPart parte = null;
 		DirectoryTools.checkOrCreateFolder(this.worksDir);
 		while (true) {
-			try {
-				do {
-					pairTP = this.stubGateway.giveWorkToDo(this.workerName);
-					if(pairTP != null) {
-						trabajo = pairTP.trabajo();
-						parte = pairTP.parte();
-					} else {
-						Thread.sleep(1000);
+			String recordTrabajoParteJson = null;
+			RTrabajoParte recordTrabajoParte = null;
+				while (recordTrabajoParte == null){
+					try {
+						recordTrabajoParteJson = connectRandomGatewayRMI(this.listaGateways).getWorkToDo(this.workerName);
+						if(recordTrabajoParteJson == null) {
+							Thread.sleep(1000);
+						}
+					} catch (InterruptedException | RemoteException e) {
 					}
-				} while (pairTP == null);
-				File thisWorkDir = new File(this.worksDir + trabajo.getBlendName());
+				}
+				recordTrabajoParte = gson.fromJson(recordTrabajoParteJson, RTrabajoParteType);
+				File thisWorkDir = new File(this.worksDir + recordTrabajoParte.rParte().uuid());
 				DirectoryTools.checkOrCreateFolder(thisWorkDir.getAbsolutePath());
 				File thisWorkRenderDir = new File(thisWorkDir + this.rendersDir);
 				DirectoryTools.checkOrCreateFolder(thisWorkRenderDir.getAbsolutePath());
 				File thisWorkBlendDir = new File(thisWorkDir + this.blendDir);
 				DirectoryTools.checkOrCreateFolder(thisWorkBlendDir.getAbsolutePath());
-				log.info("Recibi un nuevo trabajo: " + trabajo.getBlendName());
-				log.info("Parte Nº: " + pairTP.parte().getNParte());
-				File blendFile = persistBlendFile(trabajo.getBlendFile(), thisWorkBlendDir.getAbsolutePath(), trabajo.getBlendName());
-				startRender(trabajo, parte, thisWorkRenderDir.getAbsolutePath(), blendFile);
+				log.info("Recibi un nuevo trabajo: " + recordTrabajoParte.rParte().uuid());
+				byte[] blendFileBytes = downloadBlendFileByURL(recordTrabajoParte.rTrabajo().urlBlendFile());
+				File blendFile = persistBlendFile(blendFileBytes, thisWorkBlendDir.getAbsolutePath(), recordTrabajoParte.rTrabajo().blendName());
+				startRender(recordTrabajoParte, thisWorkRenderDir.getAbsolutePath(), blendFile);
 				DirectoryTools.deleteDirectory(thisWorkDir);
-			} catch (RemoteException | InterruptedException e) {
-				log.error("Conexión perdida con el Servidor.");
-				connectRMI();
-				lanzarThread();
-				getWork();
-			}
+		}
+	}
+
+	private byte[] downloadBlendFileByURL(String urlBlendFile) {
+		return new byte[0];
+	}
+
+	private void downloadBlendAppPortable() {
+		log.info("Intentando descargar... Porfavor espere, este proceso podria tardar varios minutos...");
+		try {
+			FileUtils.copyURLToFile(
+					//new URL(this.urlBlenderPortable),
+					new URL("file:\\E:\\Bibliotecas\\Desktop\\blender-windows.zip"),
+					new File(this.singleWorkerDir + this.blenderPortableZip),
+					10000,
+					10000);
+		} catch (IOException e) {
+			throw new RuntimeException(e);
 		}
 	}
 
@@ -127,16 +144,16 @@ public class Worker implements Runnable {
 		return blend;
 	}
 
-	private void startRender(Trabajo work, TrabajoPart parte, String thisWorkRenderDir, File blendFile) {
+	private void startRender(RTrabajoParte recordTrabajoParte, String thisWorkRenderDir, File blendFile) {
 		//Formato: blender -b file_name.blend -f 1 //blender -b file_name.blend -s 1 -e 100 -a
 		log.info("Pre-configurando el archivo .blend");
 		String cmd;
-		int totalFrames = parte.getEndFrame() - parte.getStartFrame();
+		int totalFrames = recordTrabajoParte.rParte().endFrame() - recordTrabajoParte.rParte().startFrame();
 		int threadsNedeed = 1;
 		CountDownLatch latch;
 		List<WorkerProcessThread> workerThreads = new ArrayList<>();
 		if(totalFrames == 0) {
-			cmd = " -b \"" + blendFile.getAbsolutePath() + "\" -o \"" + thisWorkRenderDir + "\\frame_#####\"" + " -f " + parte.getStartFrame();
+			cmd = " -b \"" + blendFile.getAbsolutePath() + "\" -o \"" + thisWorkRenderDir + "\\frame_#####\"" + " -f " + recordTrabajoParte.rParte().startFrame();
 			latch = new CountDownLatch(threadsNedeed);
 			File f = new File(this.blenderExe + cmd);//Normalize backslashs and slashs
 			System.out.println("CMD: " + f.getAbsolutePath());
@@ -152,7 +169,7 @@ public class Worker implements Runnable {
 			log.info("Cantidad de Frames a renderizar: " + (totalFrames + 1));
 			log.info("Cantidad de Threads a crear: " + threadsNedeed);
 			int rangeFrame = (int) Math.ceil((float)totalFrames / (float)threadsNedeed);
-			int startFrame = parte.getStartFrame();
+			int startFrame = recordTrabajoParte.rParte().startFrame();
 			int endFrame = startFrame + rangeFrame;
 			latch = new CountDownLatch(threadsNedeed);
 			for (int i = 0; i < threadsNedeed; i++) {
@@ -162,8 +179,8 @@ public class Worker implements Runnable {
 				workerThreads.add(new WorkerProcessThread(latch, f.getAbsolutePath()));
 				startFrame = endFrame + 1;
 				endFrame += rangeFrame;
-				if(endFrame > parte.getEndFrame()){
-					endFrame = parte.getEndFrame();
+				if(endFrame > recordTrabajoParte.rParte().endFrame()){
+					endFrame = recordTrabajoParte.rParte().endFrame();
 				}
 			}
 		}
@@ -177,22 +194,20 @@ public class Worker implements Runnable {
 			throw new RuntimeException(e);
 		}
 		try {
-			new ZipFile(thisWorkRenderDir + work.getBlendName()+"__part__"+parte.getNParte()+".zip").addFolder(new File(thisWorkRenderDir));
+			new ZipFile(thisWorkRenderDir + recordTrabajoParte.rTrabajo().blendName()+".zip").addFolder(new File(thisWorkRenderDir));
 		} catch (ZipException e) {
 			throw new RuntimeException(e);
 		}
 		try {
-			File zipRenderedImages = new File(thisWorkRenderDir + work.getBlendName()+"__part__"+parte.getNParte()+".zip");
+			File zipRenderedImages = new File(thisWorkRenderDir + recordTrabajoParte.rTrabajo().blendName()+".zip");
 			byte[] zipWithRenderedImages = Files.readAllBytes(zipRenderedImages.toPath());
 			boolean zipSent = false;
 			while(!zipSent) {
 				try {
-					this.stubGateway.setTrabajoParteStatusDone(this.workerName, work.getId(), parte.getNParte(), zipWithRenderedImages);
+					connectRandomGatewayRMI(this.listaGateways).setParteDone(this.workerName, recordTrabajoParte.rParte().uuid(), zipWithRenderedImages);
 					zipSent = true;
 				} catch (IOException e) {
 					log.error("Conexión perdida con el Servidor.");
-					connectRMI();
-					lanzarThread();
 				}
 			}
 		} catch (Exception e) {
@@ -202,44 +217,14 @@ public class Worker implements Runnable {
 	}
 
 
-	private ClientFTP connectFTP() {
-		try {
-			log.info("Iniciando servidor FTP.");
-			this.serverFTPPort = this.stubGateway.getFTPPort();
-			ClientFTP cliFtp = null;
-			if (this.stubGateway.startFTPServer() > 0) {
-				log.info("El servidor FTP fue iniciado correctamente");
-				cliFtp = new ClientFTP(this.gatewayIp, serverFTPPort);
-			} else {
-				boolean recuperado = this.stubGateway.resumeFTPServer();
-				log.error("El servidor FTP ya estaba iniciado. Intentando establecer comunicacion: " + recuperado);
-				if (recuperado) {
-					cliFtp = new ClientFTP(this.gatewayIp, serverFTPPort);
-				}
-			}
-			return cliFtp;
-		} catch (Exception e) {
-			log.error("Hubo un error inesperado al intentar conectarse al servidor FTP.");
-			log.error("Error:" + e.getMessage());
-			return null;
-		}
-	}
 
-	private void connectRMI() {
-		try {
-			Thread.sleep(1000);
-			Registry workerRMI = LocateRegistry.getRegistry(this.gatewayIp, this.gatewayPort);
-			this.stubGateway = (IGatewayWorkerAction) workerRMI.lookup("workerAction");
-			String gatewayResp = this.stubGateway.helloGateway();
-			if(!gatewayResp.isEmpty()){
-				log.info("Conectado al Gateway: " + this.gatewayIp + ":" + this.gatewayPort);
-			}
-		} catch (RemoteException | NotBoundException e) {
-			manageGatewayFall(this.gatewayIp, this.gatewayPort);
-			connectRMI();
-		} catch (InterruptedException e) {
-			throw new RuntimeException(e);
-		}
+	private void runRedisPubClient() {
+		this.redisPubClient = RedisClient.create("redis://"+this.redisPubPassword+"@"+this.redisPubIp+":"+this.redisPubPort);
+		log.info("Conectado a Redis Público exitosamente.");
+		StatefulRedisConnection redisConnection = this.redisPubClient.connect();
+		RedisCommands commands = redisConnection.sync();
+		this.listaGateways = gson.fromJson(String.valueOf(commands.hvals("listaGateways")), RListaGatewayType);
+		redisConnection.close();
 	}
 
 	/*
@@ -260,25 +245,22 @@ public class Worker implements Runnable {
 	}
 
 	private void downloadBlenderApp() {
-		log.info("La carpeta BlenderApp esta corrupta o no existe. Descargandola desde el servidor FTP");
-		this.cliFtp = connectFTP();
+		log.info("La carpeta BlenderApp esta corrupta o no existe. Descargandola...");
+		downloadBlendAppPortable();
+		log.info("Comenzando a UnZipear Blender... Porfavor espere, este proceso podria tardar varios minutos...");
 		try {
-			if (this.cliFtp != null) {
-				log.info("Intentando descargar...Porfavor espere, este proceso podria tardar varios minutos...");
-				this.cliFtp.downloadSingleFile(this.cliFtp.getClient(), "\\" + this.blenderPortableZip, this.singleWorkerDir);
-				this.cliFtp.closeConn();
-				this.stubGateway.stopFTPServer();
-				log.info("Comenzando a UnZipear Blender... Porfavor espere, este proceso podria tardar varios minutos...");
-				new ZipFile(this.singleWorkerDir + this.blenderPortableZip).extractAll(this.singleWorkerDir);
-				log.info("Unzip Blender terminado.");
-				File zipFileBlender = new File(this.singleWorkerDir + this.blenderPortableZip);
-				zipFileBlender.delete();
-			} else {
-				log.error("Hubo un problema con el servidor FTP");
-			}
-		} catch (Exception e) {
-			e.printStackTrace();
+			new ZipFile(this.singleWorkerDir + this.blenderPortableZip).extractAll(this.singleWorkerDir);
+		} catch (ZipException e) {
+			throw new RuntimeException(e);
 		}
+		log.info("Unzip Blender terminado.");
+		File zipFileBlender = new File(this.singleWorkerDir + this.blenderPortableZip);
+		zipFileBlender.delete();
+		File directoryPath = new File(this.singleWorkerDir);
+		String contents[] = directoryPath.list();
+		File dirToRename = new File(this.singleWorkerDir + contents[0]);
+		File newDir = new File(this.blenderDir);
+		dirToRename.renameTo(newDir);
 	}
 
 	private void readConfigFile() {
@@ -288,12 +270,15 @@ public class Worker implements Runnable {
 			this.localIp = Inet4Address.getLocalHost().getHostAddress();
 			config = gson.fromJson(new FileReader(this.workerDir + "config.json"), Map.class);
 
-			Map gateway = (Map) config.get("gateway");
-			this.gatewayIp = gateway.get("ip").toString();
-			this.gatewayPort = Integer.valueOf(gateway.get("port").toString());
+			Map redisPub = (Map) config.get("redis_pub");
+			this.redisPubIp = redisPub.get("ip").toString();
+			this.redisPubPort = Integer.valueOf(redisPub.get("port").toString());
+			this.redisPubPassword = redisPub.get("password").toString();
 
 			Map paths = (Map) config.get("paths");
+			this.urlBlenderPortable = paths.get("urlBlenderPortable").toString();
 			this.blenderExe = this.singleWorkerDir + paths.get("blenderExe");
+			this.blenderDir = this.singleWorkerDir + paths.get("blenderDir");
 			this.worksDir = this.singleWorkerDir + paths.get("worksDir");
 			this.blendDir = paths.get("blendDir").toString();
 			this.rendersDir = paths.get("rendersDir").toString();
@@ -304,14 +289,6 @@ public class Worker implements Runnable {
 		}
 	}
 
-	public static void main(String[] args) {
-		Worker wk = new Worker();
-		wk.startWorker();
-	}
-
-	@Override
-	public void run() {
-		startWorker();
-	}
+	public static void main(String[] args) { new Worker(); }
 
 }

@@ -3,13 +3,18 @@
   			  "ip":"127.0.0.1"
   		},
   "rmi": {
-  			 "portForClientes":"9100",
-  			 "portForWorkers":"9200",
-			 "portForServidores":"9300"
+  			 "initialPortForClientes":"9101",
+  			 "initialPortForWorkers":"9201",
+			 "initialPortForServidores":"9301"
   		},
-	"redis":{
+	"redis_priv":{
+		"ip" : "127.0.0.1",
+		"port" : "6380",
+		"password": "th3_f0rce_m4y_b3_w1th_y0u"
+	},
+	"redis_pub":{
 		"ip" : "127.0.0.1",
 		"port" : "6379",
-		"password": "th3_f0rce_m4y_b3_w1th_y0u"
+		"password": "public"
 	}
 }

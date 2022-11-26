@@ -102,13 +102,8 @@ public class GUICliente extends JPanel implements ActionListener  {
 					 JOptionPane.showMessageDialog(null, "ERROR: El frame inicial no puede ser mayor al frame final.");
 			 } else {
 				 this.frame.setTitle("Procesando...");
-				 String pathOrError = this.controlador.enviarFile(startFrame, endFrame);
+				 this.controlador.enviarFile(startFrame, endFrame);
 				 this.frame.setTitle("Renderizado Distribuido");
-				 if(pathOrError.toLowerCase().contains("error")){
-					 JOptionPane.showMessageDialog(null, pathOrError, "Error!", JOptionPane.ERROR_MESSAGE);
-				 } else {
-				 	JOptionPane.showMessageDialog(null, "Guardado en:\n" + pathOrError, "Exito!", JOptionPane.INFORMATION_MESSAGE);
-				 }
 			 }
 		 }
 		 this.btnStart.setEnabled(this.controlador.isReady());

@@ -14,8 +14,8 @@ public class Controller{
 	public void setFile(File f) {
 		this.cliente.setFile(f);
 	}
-	public String enviarFile(int startFrame, int endFrame) {
-		return this.cliente.enviarFile(startFrame, endFrame);
+	public void enviarFile(int startFrame, int endFrame) {
+		this.cliente.enviarFile(startFrame, endFrame);
 	}
 	public boolean isReady() {
 		return this.cliente.isReady();

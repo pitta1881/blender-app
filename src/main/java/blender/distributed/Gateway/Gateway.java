@@ -1,21 +1,35 @@
 package blender.distributed.Gateway;
 
-import blender.distributed.Gateway.Servidor.*;
+import blender.distributed.Gateway.Servidor.GatewayClienteAction;
+import blender.distributed.Gateway.Servidor.GatewayServidorAction;
+import blender.distributed.Gateway.Servidor.GatewayWorkerAction;
+import blender.distributed.Gateway.Servidor.IGatewayServidorAction;
+import blender.distributed.Gateway.Threads.RefreshListaServidoresThread;
+import blender.distributed.Gateway.Threads.RefreshListaWorkersThread;
+import blender.distributed.Records.RGateway;
+import blender.distributed.Records.RServidor;
+import blender.distributed.Servidor.Cliente.IClienteAction;
+import blender.distributed.Servidor.Worker.IWorkerAction;
 import com.google.gson.Gson;
+import com.google.gson.reflect.TypeToken;
 import io.lettuce.core.RedisClient;
 import io.lettuce.core.api.StatefulRedisConnection;
+import io.lettuce.core.api.sync.RedisCommands;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
 
+import java.io.FileNotFoundException;
 import java.io.FileReader;
-import java.io.IOException;
+import java.lang.reflect.Type;
 import java.rmi.RemoteException;
 import java.rmi.registry.LocateRegistry;
 import java.rmi.registry.Registry;
 import java.rmi.server.UnicastRemoteObject;
 import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 public class Gateway {
 	//General settings
@@ -30,74 +44,80 @@ public class Gateway {
 	Registry registryCli;
 	Registry registryWk;
 	Registry registrySv;
-	private IGatewayClientAction remoteCliente;
-	private IGatewayWorkerAction remoteWorker;
+	private IClienteAction remoteCliente;
+	private IWorkerAction remoteWorker;
 	private IGatewayServidorAction remoteServidor;
 
 	//redis related
-	private String redisIp;
-	private int redisPort;
-	private String redisPassword;
-	RedisClient redisClient;
-	ArrayList<PairIpPortCPortW> listaServidores = new ArrayList<>();
-
-	public Gateway() {
+	private String redisPrivIp;
+	private int redisPrivPort;
+	private String redisPrivPassword;
+	private String redisPubIp;
+	private int redisPubPort;
+	private String redisPubPassword;
+	RedisClient redisPrivClient;
+	List<RServidor> listaServidores = new ArrayList<>();
+	boolean flushDb = false;
+	Gson gson = new Gson();
+	Type RListaServidorType = new TypeToken<List<RServidor>>(){}.getType();
+	public Gateway(boolean flushDb) {
+		this.flushDb = flushDb;
 		MDC.put("log.name", this.getClass().getSimpleName());
 		readConfigFile();
+		runRedisPrivClient();
+		runRMIGateway(this.rmiPortForClientes, this.rmiPortForWorkers, this.rmiPortForServidores);
+		runRedisPubClient();
+		createThreadRefreshListaServidores();
+		createThreadRefreshListaWorkers();
+	}
+
+	private void createThreadRefreshListaServidores() {
+		RefreshListaServidoresThread listServT = new RefreshListaServidoresThread(this.listaServidores, this.redisPrivClient);
+		Thread threadListaT = new Thread(listServT);
+		threadListaT.start();
+	}
+
+	private void createThreadRefreshListaWorkers() {
+		RefreshListaWorkersThread listaWorkersT = new RefreshListaWorkersThread(this.redisPrivClient);
+		Thread threadAliveT = new Thread(listaWorkersT);
+		threadAliveT.start();
+	}
+
+	private void runRMIGateway(int rmiPortForClientes, int rmiPortForWorkers, int rmiPortForServidores) {
 		try {
-			runRedisClient();
-			runRMIServer();
-			while(true){
-				Thread.sleep(3000);
-				/*
-				try (Jedis jedis = this.pool.getResource()) {
-					Map<byte[], byte[]> listaWorkers = jedis.hgetAll(this.listaWorkersByte);
-					listaWorkers.forEach((workerNameByte, parParteLastpingByte) -> {
-						PairParteLastping plp = SerializationUtils.deserialize(parParteLastpingByte);
-						//Checkeo si se cayo un nodo
-						String workerNameString = SerializationUtils.deserialize(workerNameByte);
-						LocalTime timeLastPing = plp.lastPing();
-						int differenceLastKnownPing = (int) Duration.between(timeLastPing, LocalTime.now()).getSeconds();
-						if (differenceLastKnownPing > 7) {
-							//plp.ptp().parte().setStatus(TrabajoStatus.TO_DO); conseguir el trabajo de la otra lista
-							jedis.hdel(this.listaWorkersByte, workerNameByte);
-							log.error("Eliminando al nodo " + workerNameString + ". Motivo time-out de " + differenceLastKnownPing + " segundos.");
-						}
-					jedis.close();
-					});
-				}
-				 */
-			}
+			System.setProperty("sun.security.ssl.allowUnsafeRenegotiation", "true"); // renegotiation process is disabled by default.. Without this can't run two clients rmi on same machine like worker and client.
+			log.info("Levantando gateway RMI...");
+			registryCli = LocateRegistry.createRegistry(rmiPortForClientes);
+			registryWk = LocateRegistry.createRegistry(rmiPortForWorkers);
+			registrySv = LocateRegistry.createRegistry(rmiPortForServidores);
+
+			remoteCliente = (IClienteAction) UnicastRemoteObject.exportObject(new GatewayClienteAction(this.listaServidores),0);
+			remoteWorker = (IWorkerAction) UnicastRemoteObject.exportObject(new GatewayWorkerAction(this.listaServidores),0);
+			remoteServidor = (IGatewayServidorAction) UnicastRemoteObject.exportObject(new GatewayServidorAction(this.redisPrivClient, this.listaServidores),0);
+
+			registryCli.rebind("clienteAction", remoteCliente);
+			registryWk.rebind("workerAction", remoteWorker);
+			registrySv.rebind("servidorAction", remoteServidor);
+
+			log.info("Gateway RMI");
+			log.info("\t -> Para Clientes: " + registryCli.toString());
+			log.info("\t -> Para Workers: " + registryWk.toString());
+			log.info("\t -> Para Servidores: " + registrySv.toString());
+			this.rmiPortForClientes = rmiPortForClientes;
+			this.rmiPortForWorkers = rmiPortForWorkers;
+			this.rmiPortForServidores = rmiPortForServidores;
 		} catch (RemoteException e) {
-			e.printStackTrace();
-		} catch (InterruptedException e) {
-			throw new RuntimeException(e);
+			log.error("Error: Puertos " + rmiPortForClientes + "(Clientes), " + rmiPortForWorkers + "(Workers) y " + rmiPortForServidores + "(Servidores) en uso.");
+			try {
+				Thread.sleep(1000);
+			} catch (InterruptedException ex) {
+				throw new RuntimeException(ex);
+			}
+			runRMIGateway(++rmiPortForClientes, ++rmiPortForWorkers, ++rmiPortForServidores);
 		}
 	}
 
-	private void runRMIServer() throws RemoteException {
-		System.setProperty("sun.security.ssl.allowUnsafeRenegotiation", "true"); // renegotiation process is disabled by default.. Without this can't run two clients rmi on same machine like worker and client.
-		log.info("Levantando gateway RMI...");
-		registryCli = LocateRegistry.createRegistry(this.rmiPortForClientes);
-		registryWk = LocateRegistry.createRegistry(this.rmiPortForWorkers);
-		registrySv = LocateRegistry.createRegistry(this.rmiPortForServidores);
-
-		remoteCliente = (IGatewayClientAction) UnicastRemoteObject.exportObject(new GatewayClienteAction(this.listaServidores),0);
-		remoteWorker = (IGatewayWorkerAction) UnicastRemoteObject.exportObject(new GatewayWorkerAction(this.listaServidores),0);
-		remoteServidor = (IGatewayServidorAction) UnicastRemoteObject.exportObject(new GatewayServidorAction(this.redisClient, this.listaServidores),0);
-
-		registryCli.rebind("clientAction", remoteCliente);
-		registryWk.rebind("workerAction", remoteWorker);
-		registrySv.rebind("servidorAction", remoteServidor);
-
-		log.info("Gateway RMI");
-		log.info("\t -> Para Clientes: " + registryCli.toString());
-		log.info("\t -> Para Workers: " + registryWk.toString());
-		log.info("\t -> Para Servidores: " + registrySv.toString());
-	}
-
 	private void readConfigFile() {
-		Gson gson = new Gson();
 		Map config;
 		try {
 			config = gson.fromJson(new FileReader(this.gatewayDirectory +"config.json"), Map.class);
@@ -106,28 +126,49 @@ public class Gateway {
 			this.myIp = server.get("ip").toString();
 
 			Map rmi = (Map) config.get("rmi");
-			this.rmiPortForClientes = Integer.valueOf(rmi.get("portForClientes").toString());
-			this.rmiPortForWorkers = Integer.valueOf(rmi.get("portForWorkers").toString());
-			this.rmiPortForServidores = Integer.valueOf(rmi.get("portForServidores").toString());
+			this.rmiPortForClientes = Integer.valueOf(rmi.get("initialPortForClientes").toString());
+			this.rmiPortForWorkers = Integer.valueOf(rmi.get("initialPortForWorkers").toString());
+			this.rmiPortForServidores = Integer.valueOf(rmi.get("initialPortForServidores").toString());
 
-			Map redis = (Map) config.get("redis");
-			this.redisIp = redis.get("ip").toString();
-			this.redisPort = Integer.valueOf(redis.get("port").toString());
-			this.redisPassword = redis.get("password").toString();
+			Map redisPriv = (Map) config.get("redis_priv");
+			this.redisPrivIp = redisPriv.get("ip").toString();
+			this.redisPrivPort = Integer.valueOf(redisPriv.get("port").toString());
+			this.redisPrivPassword = redisPriv.get("password").toString();
 
-		} catch (IOException e) {
+			Map redisPub = (Map) config.get("redis_pub");
+			this.redisPubIp = redisPub.get("ip").toString();
+			this.redisPubPort = Integer.valueOf(redisPub.get("port").toString());
+			this.redisPubPassword = redisPub.get("password").toString();
+
+		} catch (FileNotFoundException e) {
+			throw new RuntimeException(e);
 		}
 	}
 
-	private void runRedisClient() {
-		this.redisClient = RedisClient.create("redis://"+this.redisPassword+"@"+this.redisIp+":"+this.redisPort);
-		log.info("Conectado a Redis exitosamente.");
-		StatefulRedisConnection redisConnection = redisClient.connect();
-		redisConnection.sync().flushdb();
+	private void runRedisPubClient() {
+		RedisClient redisPubClient = RedisClient.create("redis://"+this.redisPubPassword+"@"+this.redisPubIp+":"+this.redisPubPort);
+		log.info("Conectado a Redis Público exitosamente.");
+		StatefulRedisConnection redisConnection = redisPubClient.connect();
+		RedisCommands commands = redisConnection.sync();
+		if(flushDb) commands.flushdb();
+		String uuid = UUID.randomUUID().toString();
+		commands.hset("listaGateways", uuid, gson.toJson(new RGateway(uuid, this.myIp, this.rmiPortForClientes, this.rmiPortForWorkers, this.rmiPortForServidores)));
+		log.info("Iniciando Gateway -> " + uuid);
+		redisConnection.close();
+		redisPubClient.shutdown();
+	}
+
+	private void runRedisPrivClient() {
+		this.redisPrivClient = RedisClient.create("redis://"+this.redisPrivPassword+"@"+this.redisPrivIp+":"+this.redisPrivPort);
+		log.info("Conectado a Redis Privado exitosamente.");
+		StatefulRedisConnection redisConnection = this.redisPrivClient.connect();
+		RedisCommands commands = redisConnection.sync();
+		this.listaServidores = gson.fromJson(String.valueOf(commands.hvals("listaServidores")), RListaServidorType);
+		if(this.flushDb) commands.flushdb();
 		redisConnection.close();
 	}
 
 	public static void main(String[] args) {
-		new Gateway();
+		new Gateway(true);
 	}
 }

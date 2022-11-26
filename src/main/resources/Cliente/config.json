@@ -1,6 +1,8 @@
 {
-  "gateway": {	"ip":"127.0.0.1",
-              	"port":"9100"
+  "redis_pub":{
+    "ip" : "127.0.0.1",
+    "port" : "6379",
+    "password": "public"
   },
   "paths": {
     "renderedImages":"\\RenderedImages\\"
