@@ -28,11 +28,10 @@ public class DirectoryTools {
 	public static boolean checkOrCreateFolder(String path){
 		File fFolder = new File(path);
 		if(!fFolder.isDirectory()){
-			log.info("Error: "+fFolder.getAbsolutePath()+" No es un directorio.");
 			fFolder.mkdir();
-			log.info("Success: "+fFolder.getAbsolutePath()+" Directorio creado.");
+			log.info("Success: "+fFolder.getPath()+" Directorio creado.");
 		} else {
-			log.info(fFolder.getAbsolutePath()+" ---->Directorio");
+			log.info(fFolder.getPath()+" ---->Directorio");
 		}
 		return true;
 	}

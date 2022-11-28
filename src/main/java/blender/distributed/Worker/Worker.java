@@ -1,5 +1,6 @@
 package blender.distributed.Worker;
 
+import blender.distributed.Gateway.Gateway;
 import blender.distributed.Records.RGateway;
 import blender.distributed.Records.RTrabajoParte;
 import blender.distributed.SharedTools.DirectoryTools;
@@ -14,6 +15,7 @@ import io.lettuce.core.api.sync.RedisCommands;
 import net.lingala.zip4j.ZipFile;
 import net.lingala.zip4j.exception.ZipException;
 import org.apache.commons.io.FileUtils;
+import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.SystemUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -102,15 +104,15 @@ public class Worker {
 				}
 				recordTrabajoParte = gson.fromJson(recordTrabajoParteJson, RTrabajoParteType);
 				File thisWorkDir = new File(this.worksDir + recordTrabajoParte.rParte().uuid());
-				DirectoryTools.checkOrCreateFolder(thisWorkDir.getAbsolutePath());
+				DirectoryTools.checkOrCreateFolder(thisWorkDir.getPath());
 				File thisWorkRenderDir = new File(thisWorkDir + this.rendersDir);
-				DirectoryTools.checkOrCreateFolder(thisWorkRenderDir.getAbsolutePath());
+				DirectoryTools.checkOrCreateFolder(thisWorkRenderDir.getPath());
 				File thisWorkBlendDir = new File(thisWorkDir + this.blendDir);
-				DirectoryTools.checkOrCreateFolder(thisWorkBlendDir.getAbsolutePath());
+				DirectoryTools.checkOrCreateFolder(thisWorkBlendDir.getPath());
 				log.info("Recibi un nuevo trabajo: " + recordTrabajoParte.rParte().uuid());
 				byte[] blendFileBytes = downloadBlendFileByURL(recordTrabajoParte.rTrabajo().urlBlendFile());
-				File blendFile = persistBlendFile(blendFileBytes, thisWorkBlendDir.getAbsolutePath(), recordTrabajoParte.rTrabajo().blendName());
-				startRender(recordTrabajoParte, thisWorkRenderDir.getAbsolutePath(), blendFile);
+				File blendFile = persistBlendFile(blendFileBytes, thisWorkBlendDir.getPath(), recordTrabajoParte.rTrabajo().blendName());
+				startRender(recordTrabajoParte, thisWorkRenderDir.getPath(), blendFile);
 				DirectoryTools.deleteDirectory(thisWorkDir);
 		}
 	}
@@ -139,11 +141,11 @@ public class Worker {
 		CountDownLatch latch;
 		List<WorkerProcessThread> workerThreads = new ArrayList<>();
 		if(totalFrames == 0) {
-			cmd = " -b \"" + blendFile.getAbsolutePath() + "\" -o \"" + thisWorkRenderDir + "/frame_#####\"" + " -f " + recordTrabajoParte.rParte().startFrame();
+			cmd = " -b \"" + blendFile.getPath() + "\" -o \"" + thisWorkRenderDir + "/frame_#####\"" + " -f " + recordTrabajoParte.rParte().startFrame();
 			latch = new CountDownLatch(threadsNedeed);
 			File f = new File(this.blenderExe + cmd);//Normalize backslashs and slashs
-			System.out.println("CMD: " + f.getAbsolutePath());
-			workerThreads.add(new WorkerProcessThread(latch, f.getAbsolutePath()));
+			System.out.println("CMD: " + f.getPath());
+			workerThreads.add(new WorkerProcessThread(latch, f.getPath()));
 		} else {
 			if(totalFrames >= 300){
 				threadsNedeed = 8;
@@ -159,10 +161,10 @@ public class Worker {
 			int endFrame = startFrame + rangeFrame;
 			latch = new CountDownLatch(threadsNedeed);
 			for (int i = 0; i < threadsNedeed; i++) {
-				cmd = " -b \"" + blendFile.getAbsolutePath() + "\" -o \"" + thisWorkRenderDir + "/frame_#####\"" + " -s " + startFrame + " -e " + endFrame + " -a";
+				cmd = " -b \"" + blendFile.getPath() + "\" -o \"" + thisWorkRenderDir + "/frame_#####\"" + " -s " + startFrame + " -e " + endFrame + " -a";
 				File f = new File(this.blenderExe + cmd);//Normalize backslashs and slashs
-				log.info("CMD: " + f.getAbsolutePath());
-				workerThreads.add(new WorkerProcessThread(latch, f.getAbsolutePath()));
+				log.info("CMD: " + f.getPath());
+				workerThreads.add(new WorkerProcessThread(latch, f.getPath()));
 				startFrame = endFrame + 1;
 				endFrame += rangeFrame;
 				if(endFrame > recordTrabajoParte.rParte().endFrame()){
@@ -221,11 +223,11 @@ public class Worker {
 		File appDir = new File(this.appDir);
 		File workerDir = new File(this.workerDir);
 		File singleWorkerDir = new File(this.singleWorkerDir);
-		DirectoryTools.checkOrCreateFolder(appDir.getAbsolutePath());
-		DirectoryTools.checkOrCreateFolder(workerDir.getAbsolutePath());
-		DirectoryTools.checkOrCreateFolder(singleWorkerDir.getAbsolutePath());
+		DirectoryTools.checkOrCreateFolder(appDir.getPath());
+		DirectoryTools.checkOrCreateFolder(workerDir.getPath());
+		DirectoryTools.checkOrCreateFolder(singleWorkerDir.getPath());
 		long size = DirectoryTools.getFolderSize(singleWorkerDir);
-		log.info("Obteniendo tamanio de: " + singleWorkerDir.getAbsolutePath() + " MB:" + (size / 1024));
+		log.info("Obteniendo tamanio de: " + singleWorkerDir.getPath() + " MB:" + (size / 1024));
 		if (size < 30000000) {
 			downloadBlenderApp();
 		} else {
@@ -297,8 +299,9 @@ public class Worker {
 		Map config;
 		try {
 			this.localIp = Inet4Address.getLocalHost().getHostAddress();
-			URL url = this.getClass().getClassLoader().getResource("workerConfig.json");
-			config = gson.fromJson(new FileReader(url.toURI().getPath()), Map.class);
+
+			InputStream stream = Gateway.class.getClassLoader().getResourceAsStream("workerConfig.json");
+			config = gson.fromJson(IOUtils.toString(stream, "UTF-8"), Map.class);
 
 			Map redisPub = (Map) config.get("redis_pub");
 			this.redisPubIp = redisPub.get("ip").toString();
@@ -320,7 +323,7 @@ public class Worker {
 				this.blenderPortable += ".tar.xz";
 			}
 
-		} catch (IOException | URISyntaxException e) {
+		} catch (IOException e) {
 			log.error("Error Archivo Config!");
 		}
 	}

@@ -12,15 +12,16 @@ import blender.distributed.Servidor.Cliente.IClienteAction;
 import blender.distributed.Servidor.Worker.IWorkerAction;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
+import com.google.gson.stream.JsonReader;
 import io.lettuce.core.RedisClient;
 import io.lettuce.core.api.StatefulRedisConnection;
 import io.lettuce.core.api.sync.RedisCommands;
+import org.apache.commons.io.IOUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
 
-import java.io.FileNotFoundException;
-import java.io.FileReader;
+import java.io.*;
 import java.lang.reflect.Type;
 import java.net.URISyntaxException;
 import java.net.URL;
@@ -121,8 +122,8 @@ public class Gateway {
 	private void readConfigFile() {
 		Map config;
 		try {
-			URL url = Gateway.class.getClassLoader().getResource("gatewayConfig.json");
-			config = gson.fromJson(new FileReader(url.toURI().getPath()), Map.class);
+			InputStream stream = Gateway.class.getClassLoader().getResourceAsStream("gatewayConfig.json");
+			config = gson.fromJson(IOUtils.toString(stream, "UTF-8"), Map.class);
 
 			Map server = (Map) config.get("gateway");
 			this.myIp = server.get("ip").toString();
@@ -142,9 +143,7 @@ public class Gateway {
 			this.redisPubPort = Integer.valueOf(redisPub.get("port").toString());
 			this.redisPubPassword = redisPub.get("password").toString();
 
-		} catch (FileNotFoundException e) {
-			throw new RuntimeException(e);
-		} catch (URISyntaxException e) {
+		} catch (IOException e) {
 			throw new RuntimeException(e);
 		}
 	}
