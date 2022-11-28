@@ -5,12 +5,13 @@
 		"password": "public"
 	},
   "paths": {
-	  		  "urlBlenderPortable": "https://mirror.clarkson.edu/blender/release/Blender3.3/blender-3.3.1-windows-x64.zip",
-  			  "blenderExe": "\\blender-windows\\blender.exe",
-	  		  "blenderDir": "\\blender-windows\\",
+	  		  "urlBlenderPortableWindows": "https://mirror.clarkson.edu/blender/release/Blender3.3/blender-3.3.1-windows-x64.zip",
+	          "urlBlenderPortableLinux": "https://mirror.clarkson.edu/blender/release/Blender3.3/blender-3.3.1-linux-x64.tar.xz",
+  			  "blenderExe": "\\blender-portable\\blender",
+	  		  "blenderDir": "\\blender-portable\\",
 	          "worksDir": "\\Works\\",
   			  "rendersDir": "\\RenderedFiles\\",
   			  "blendDir": "\\BlendFile\\",
-	  		  "blenderPortableZip": "blender-windows.zip"
+	  		  "blenderPortable": "blender-portable"
   			}
 }

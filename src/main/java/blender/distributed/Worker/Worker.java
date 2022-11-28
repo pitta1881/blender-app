@@ -14,14 +14,12 @@ import io.lettuce.core.api.sync.RedisCommands;
 import net.lingala.zip4j.ZipFile;
 import net.lingala.zip4j.exception.ZipException;
 import org.apache.commons.io.FileUtils;
+import org.apache.commons.lang3.SystemUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
 
-import java.io.File;
-import java.io.FileOutputStream;
-import java.io.FileReader;
-import java.io.IOException;
+import java.io.*;
 import java.lang.reflect.Type;
 import java.net.Inet4Address;
 import java.net.URL;
@@ -40,10 +38,10 @@ import static blender.distributed.Worker.Tools.connectRandomGatewayRMI;
 public class Worker {
 	//General
 	Logger log = LoggerFactory.getLogger(Worker.class);
-	String blenderPortableZip;
+	String blenderPortable;
 	String workerDir = System.getProperty("user.dir") + "\\src\\main\\resources\\Worker\\";
-	String workerName = "worker1663802677985"; //"worker1663802677984"; //"worker1663802677985"; //"worker"+System.currentTimeMillis();
-	String singleWorkerDir = workerDir+"\\"+workerName+"\\"; ;
+	String workerName = "worker"+System.currentTimeMillis(); //"worker1663802677984"; //"worker1663802677985"; //"worker"+System.currentTimeMillis();
+	String singleWorkerDir = workerDir+"\\"+workerName+"\\";
 	String urlBlenderPortable;
 	String blenderExe;
 	String blenderDir;
@@ -117,20 +115,6 @@ public class Worker {
 
 	private byte[] downloadBlendFileByURL(String urlBlendFile) {
 		return new byte[0];
-	}
-
-	private void downloadBlendAppPortable() {
-		log.info("Intentando descargar... Porfavor espere, este proceso podria tardar varios minutos...");
-		try {
-			FileUtils.copyURLToFile(
-					//new URL(this.urlBlenderPortable),
-					new URL("file:\\E:\\Bibliotecas\\Desktop\\blender-windows.zip"),
-					new File(this.singleWorkerDir + this.blenderPortableZip),
-					10000,
-					10000);
-		} catch (IOException e) {
-			throw new RuntimeException(e);
-		}
 	}
 
 
@@ -246,23 +230,60 @@ public class Worker {
 
 	private void downloadBlenderApp() {
 		log.info("La carpeta BlenderApp esta corrupta o no existe. Descargandola...");
-		downloadBlendAppPortable();
+		log.info("Intentando descargar... Porfavor espere, este proceso podria tardar varios minutos...");
+		try {
+			FileUtils.copyURLToFile(
+					new URL(this.urlBlenderPortable),
+					//new URL("file:\\E:\\Bibliotecas\\Desktop\\blender-3.3.1-linux-x64.tar.xz"),
+					new File(this.singleWorkerDir + this.blenderPortable),
+					10000,
+					10000);
+		} catch (IOException e) {
+			throw new RuntimeException(e);
+		}
+		if(SystemUtils.IS_OS_WINDOWS){
+			unzipBlenderPortable();
+		} else {
+			untarBlenderPortable();
+		}
+		renameBlenderFolder();
+	}
+
+	private void unzipBlenderPortable(){
 		log.info("Comenzando a UnZipear Blender... Porfavor espere, este proceso podria tardar varios minutos...");
 		try {
-			new ZipFile(this.singleWorkerDir + this.blenderPortableZip).extractAll(this.singleWorkerDir);
+			new ZipFile(this.singleWorkerDir + this.blenderPortable).extractAll(this.singleWorkerDir);
 		} catch (ZipException e) {
 			throw new RuntimeException(e);
 		}
 		log.info("Unzip Blender terminado.");
-		File zipFileBlender = new File(this.singleWorkerDir + this.blenderPortableZip);
+		File zipFileBlender = new File(this.singleWorkerDir + this.blenderPortable);
 		zipFileBlender.delete();
+	}
+
+	private void untarBlenderPortable(){
+		log.info("Comenzando a UnTarear Blender... Porfavor espere, este proceso podria tardar varios minutos...");
+
+		try {
+			ProcessBuilder pb = new ProcessBuilder("tar", "-xf", this.blenderPortable);
+			pb.inheritIO();
+			pb.directory(new File(this.singleWorkerDir + this.blenderPortable));
+			pb.start();
+		} catch (IOException e) {
+			throw new RuntimeException(e);
+		}
+		log.info("Untar Blender terminado.");
+		File tarFileBlender = new File(this.singleWorkerDir + this.blenderPortable);
+		tarFileBlender.delete();
+	}
+
+	private void renameBlenderFolder(){
 		File directoryPath = new File(this.singleWorkerDir);
 		String contents[] = directoryPath.list();
 		File dirToRename = new File(this.singleWorkerDir + contents[0]);
 		File newDir = new File(this.blenderDir);
 		dirToRename.renameTo(newDir);
 	}
-
 	private void readConfigFile() {
 		Gson gson = new Gson();
 		Map config;
@@ -276,13 +297,19 @@ public class Worker {
 			this.redisPubPassword = redisPub.get("password").toString();
 
 			Map paths = (Map) config.get("paths");
-			this.urlBlenderPortable = paths.get("urlBlenderPortable").toString();
 			this.blenderExe = this.singleWorkerDir + paths.get("blenderExe");
 			this.blenderDir = this.singleWorkerDir + paths.get("blenderDir");
 			this.worksDir = this.singleWorkerDir + paths.get("worksDir");
 			this.blendDir = paths.get("blendDir").toString();
 			this.rendersDir = paths.get("rendersDir").toString();
-			this.blenderPortableZip = paths.get("blenderPortableZip").toString();
+			this.blenderPortable = paths.get("blenderPortable").toString();
+			if (SystemUtils.IS_OS_WINDOWS) {
+				this.urlBlenderPortable = paths.get("urlBlenderPortableWindows").toString();
+				this.blenderPortable += ".zip";
+			} else {
+				this.urlBlenderPortable = paths.get("urlBlenderPortableLinux").toString();
+				this.blenderPortable += ".tar.xz";
+			}
 
 		} catch (IOException e) {
 			log.error("Error Archivo Config!");
