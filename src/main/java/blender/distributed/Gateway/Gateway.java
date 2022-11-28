@@ -22,6 +22,7 @@ import org.slf4j.MDC;
 import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.lang.reflect.Type;
+import java.net.URL;
 import java.rmi.RemoteException;
 import java.rmi.registry.LocateRegistry;
 import java.rmi.registry.Registry;
@@ -34,7 +35,6 @@ import java.util.UUID;
 public class Gateway {
 	//General settings
 	Logger log = LoggerFactory.getLogger(Gateway.class);
-	String gatewayDirectory = System.getProperty("user.dir")+"\\src\\main\\resources\\Gateway\\";
 	private String myIp;
 
 	//RMI
@@ -120,8 +120,9 @@ public class Gateway {
 	private void readConfigFile() {
 		Map config;
 		try {
-			config = gson.fromJson(new FileReader(this.gatewayDirectory +"config.json"), Map.class);
-			
+			URL url = this.getClass().getClassLoader().getResource("gatewayConfig.json");
+			config = gson.fromJson(new FileReader(url.getPath()), Map.class);
+
 			Map server = (Map) config.get("gateway");
 			this.myIp = server.get("ip").toString();
 
@@ -147,8 +148,8 @@ public class Gateway {
 
 	private void runRedisPubClient() {
 		RedisClient redisPubClient = RedisClient.create("redis://"+this.redisPubPassword+"@"+this.redisPubIp+":"+this.redisPubPort);
-		log.info("Conectado a Redis Público exitosamente.");
 		StatefulRedisConnection redisConnection = redisPubClient.connect();
+		log.info("Conectado a Redis Público exitosamente.");
 		RedisCommands commands = redisConnection.sync();
 		if(flushDb) commands.flushdb();
 		String uuid = UUID.randomUUID().toString();

@@ -5,6 +5,6 @@
     "password": "public"
   },
   "paths": {
-    "renderedImages":"\\RenderedImages\\"
+    "renderedImages":"/RenderedImages/"
   }
 }

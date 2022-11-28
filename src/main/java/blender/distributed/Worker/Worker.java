@@ -39,9 +39,10 @@ public class Worker {
 	//General
 	Logger log = LoggerFactory.getLogger(Worker.class);
 	String blenderPortable;
-	String workerDir = System.getProperty("user.dir") + "\\src\\main\\resources\\Worker\\";
+	String appDir = System.getProperty("user.dir") + "/app/";
+	String workerDir = appDir + "Worker/";
 	String workerName = "worker"+System.currentTimeMillis(); //"worker1663802677984"; //"worker1663802677985"; //"worker"+System.currentTimeMillis();
-	String singleWorkerDir = workerDir+"\\"+workerName+"\\";
+	String singleWorkerDir = workerDir + "/" + workerName + "/";
 	String urlBlenderPortable;
 	String blenderExe;
 	String blenderDir;
@@ -67,7 +68,7 @@ public class Worker {
 		createThreadRefreshListaGateways();
 		createThreadSendPingAlive();
 		if (checkNeededFiles()) {
-			getWork();
+			//getWork();
 		} else {
 			log.debug("Error inesperado!");
 		}
@@ -119,7 +120,7 @@ public class Worker {
 
 
 	private File persistBlendFile(byte[] byteBlend, String thisWorkBlendDir, String blendName) {
-		File blend = new File(thisWorkBlendDir + "\\" + blendName);
+		File blend = new File(thisWorkBlendDir + "/" + blendName);
 		try (FileOutputStream fos = new FileOutputStream(blend)) {
 			fos.write(byteBlend);
 		} catch (Exception e) {
@@ -137,7 +138,7 @@ public class Worker {
 		CountDownLatch latch;
 		List<WorkerProcessThread> workerThreads = new ArrayList<>();
 		if(totalFrames == 0) {
-			cmd = " -b \"" + blendFile.getAbsolutePath() + "\" -o \"" + thisWorkRenderDir + "\\frame_#####\"" + " -f " + recordTrabajoParte.rParte().startFrame();
+			cmd = " -b \"" + blendFile.getAbsolutePath() + "\" -o \"" + thisWorkRenderDir + "/frame_#####\"" + " -f " + recordTrabajoParte.rParte().startFrame();
 			latch = new CountDownLatch(threadsNedeed);
 			File f = new File(this.blenderExe + cmd);//Normalize backslashs and slashs
 			System.out.println("CMD: " + f.getAbsolutePath());
@@ -157,7 +158,7 @@ public class Worker {
 			int endFrame = startFrame + rangeFrame;
 			latch = new CountDownLatch(threadsNedeed);
 			for (int i = 0; i < threadsNedeed; i++) {
-				cmd = " -b \"" + blendFile.getAbsolutePath() + "\" -o \"" + thisWorkRenderDir + "\\frame_#####\"" + " -s " + startFrame + " -e " + endFrame + " -a";
+				cmd = " -b \"" + blendFile.getAbsolutePath() + "\" -o \"" + thisWorkRenderDir + "/frame_#####\"" + " -s " + startFrame + " -e " + endFrame + " -a";
 				File f = new File(this.blenderExe + cmd);//Normalize backslashs and slashs
 				log.info("CMD: " + f.getAbsolutePath());
 				workerThreads.add(new WorkerProcessThread(latch, f.getAbsolutePath()));
@@ -204,8 +205,8 @@ public class Worker {
 
 	private void runRedisPubClient() {
 		this.redisPubClient = RedisClient.create("redis://"+this.redisPubPassword+"@"+this.redisPubIp+":"+this.redisPubPort);
-		log.info("Conectado a Redis Público exitosamente.");
 		StatefulRedisConnection redisConnection = this.redisPubClient.connect();
+		log.info("Conectado a Redis Público exitosamente.");
 		RedisCommands commands = redisConnection.sync();
 		this.listaGateways = gson.fromJson(String.valueOf(commands.hvals("listaGateways")), RListaGatewayType);
 		redisConnection.close();
@@ -216,7 +217,11 @@ public class Worker {
 	 * en caso de no tenerlas las descarga por ftp.
 	 */
 	private boolean checkNeededFiles() {
+		File appDir = new File(this.appDir);
+		File workerDir = new File(this.workerDir);
 		File singleWorkerDir = new File(this.singleWorkerDir);
+		DirectoryTools.checkOrCreateFolder(appDir.getAbsolutePath());
+		DirectoryTools.checkOrCreateFolder(workerDir.getAbsolutePath());
 		DirectoryTools.checkOrCreateFolder(singleWorkerDir.getAbsolutePath());
 		long size = DirectoryTools.getFolderSize(singleWorkerDir);
 		log.info("Obteniendo tamanio de: " + singleWorkerDir.getAbsolutePath() + " MB:" + (size / 1024));
@@ -233,8 +238,8 @@ public class Worker {
 		log.info("Intentando descargar... Porfavor espere, este proceso podria tardar varios minutos...");
 		try {
 			FileUtils.copyURLToFile(
-					new URL(this.urlBlenderPortable),
-					//new URL("file:\\E:\\Bibliotecas\\Desktop\\blender-3.3.1-linux-x64.tar.xz"),
+					//new URL(this.urlBlenderPortable),
+					new URL("file:/home/debian/Desktop/blender-3.3.1-linux-x64.tar.xz"),
 					new File(this.singleWorkerDir + this.blenderPortable),
 					10000,
 					10000);
@@ -265,11 +270,12 @@ public class Worker {
 		log.info("Comenzando a UnTarear Blender... Porfavor espere, este proceso podria tardar varios minutos...");
 
 		try {
-			ProcessBuilder pb = new ProcessBuilder("tar", "-xf", this.blenderPortable);
+			ProcessBuilder pb = new ProcessBuilder("tar", "-xf", this.singleWorkerDir + this.blenderPortable);
 			pb.inheritIO();
-			pb.directory(new File(this.singleWorkerDir + this.blenderPortable));
-			pb.start();
-		} catch (IOException e) {
+			pb.directory(new File(this.singleWorkerDir));
+			Process process = pb.start();
+			process.waitFor();
+		} catch (InterruptedException | IOException e) {
 			throw new RuntimeException(e);
 		}
 		log.info("Untar Blender terminado.");
@@ -289,7 +295,8 @@ public class Worker {
 		Map config;
 		try {
 			this.localIp = Inet4Address.getLocalHost().getHostAddress();
-			config = gson.fromJson(new FileReader(this.workerDir + "config.json"), Map.class);
+			URL url = this.getClass().getClassLoader().getResource("workerConfig.json");
+			config = gson.fromJson(new FileReader(url.getPath()), Map.class);
 
 			Map redisPub = (Map) config.get("redis_pub");
 			this.redisPubIp = redisPub.get("ip").toString();

@@ -1,7 +1,0 @@
-#Generated file - don't edit (please)
-#Wed Sep 28 11:42:20 ART 2022
-ftpserver.user.worker.writepermission=true
-ftpserver.user.worker.idletime=0
-ftpserver.user.worker.enableflag=true
-ftpserver.user.worker.userpassword=workerpwd
-ftpserver.user.worker.homedirectory=D\:\\UNLu\\SDYPP\\TP FINAL\\BlenderJava\\BlenderJava\\src\\main\\resources\\Servidor\\\\FTP\\

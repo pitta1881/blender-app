@@ -20,6 +20,7 @@ import org.slf4j.MDC;
 import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
+import java.net.URL;
 import java.rmi.RemoteException;
 import java.rmi.registry.LocateRegistry;
 import java.rmi.registry.Registry;
@@ -32,7 +33,8 @@ import static blender.distributed.Gateway.Tools.connectRandomGatewayRMIForServid
 public class Servidor {
 	//General settings
 	Logger log = LoggerFactory.getLogger(Servidor.class);
-	String serverDirectory = System.getProperty("user.dir")+"\\src\\main\\resources\\Servidor\\";
+	String appDir = System.getProperty("user.dir") + "/app/";
+	String serverDirectory = appDir + "Servidor/";
 	String singleServerDir;
 
 	//RMI
@@ -101,7 +103,8 @@ public class Servidor {
 		Gson gson = new Gson();
 		Map config;
 		try {
-			config = gson.fromJson(new FileReader(this.serverDirectory+"config.json"), Map.class);
+			URL url = this.getClass().getClassLoader().getResource("servidorConfig.json");
+			config = gson.fromJson(new FileReader(url.getPath()), Map.class);
 
 			Map rmi = (Map) config.get("rmi");
 			this.rmiPortForClientes = Integer.valueOf(rmi.get("initialPortForClientes").toString());
@@ -117,16 +120,20 @@ public class Servidor {
 	}
 
 	private void createSingleServerDir(int portWorkerUsed){
-		int serverNumber = portWorkerUsed - 9200;
-		File singleServerFileDir = new File(this.serverDirectory + "\\server9x0" + serverNumber);
+		int serverNumber = portWorkerUsed - 9250;
+		File appDir = new File(this.appDir);
+		File serverDir = new File(this.serverDirectory);
+		File singleServerFileDir = new File(this.serverDirectory + "/server9x5" + serverNumber);
+		DirectoryTools.checkOrCreateFolder(appDir.getAbsolutePath());
+		DirectoryTools.checkOrCreateFolder(serverDir.getAbsolutePath());
 		this.singleServerDir = singleServerFileDir.getAbsolutePath();
 		DirectoryTools.checkOrCreateFolder(this.singleServerDir);
 	}
 
 	private void runRedisPubClient() {
 		this.redisPubClient = RedisClient.create("redis://"+this.redisPubPassword+"@"+this.redisPubIp+":"+this.redisPubPort);
-		log.info("Conectado a Redis Público exitosamente.");
 		StatefulRedisConnection redisConnection = this.redisPubClient.connect();
+		log.info("Conectado a Redis Público exitosamente.");
 		RedisCommands commands = redisConnection.sync();
 		this.listaGateways = new Gson().fromJson(String.valueOf(commands.hvals("listaGateways")), new TypeToken<List<RGateway>>(){}.getType());
 		redisConnection.close();

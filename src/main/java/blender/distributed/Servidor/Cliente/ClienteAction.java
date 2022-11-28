@@ -23,7 +23,6 @@ public class ClienteAction implements IClienteAction {
 	List<RGateway> listaGateways;
 	int frameDivision = 100;
 	Gson gson = new Gson();
-	Type RTrabajoType = new TypeToken<RTrabajo>(){}.getType();
 
 	public ClienteAction(List<RGateway> listaGateways) {
 		MDC.put("log.name", ClienteAction.class.getSimpleName());

@@ -4,6 +4,7 @@ import blender.distributed.Cliente.Threads.CheckFinishedTrabajo;
 import blender.distributed.Records.RGateway;
 import blender.distributed.Records.RTrabajo;
 import blender.distributed.Servidor.Cliente.IClienteAction;
+import blender.distributed.SharedTools.DirectoryTools;
 import blender.distributed.SharedTools.RefreshListaGatewaysThread;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
@@ -18,6 +19,7 @@ import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
 import java.lang.reflect.Type;
+import java.net.URL;
 import java.nio.file.Files;
 import java.rmi.RemoteException;
 import java.util.List;
@@ -27,10 +29,10 @@ import static blender.distributed.Cliente.Tools.connectRandomGatewayRMI;
 
 public class Cliente{
 	static Logger log = LoggerFactory.getLogger(Cliente.class);
-	IClienteAction stubGateway;
 	File file;
 	byte[] fileContent;
-	String clienteDirectory = System.getProperty("user.dir")+"\\src\\main\\resources\\Cliente\\";
+	String appDir = System.getProperty("user.dir") + "/app/";
+	String clienteDirectory = System.getProperty("user.dir") + "Cliente/";
 	String myRenderedImages;
 	List<RGateway> listaGateways;
 	RedisClient redisPubClient;
@@ -45,7 +47,15 @@ public class Cliente{
 		readConfigFile();
 		runRedisPubClient();
 		createThreadRefreshListaGateways();
+		createDirectories();
 		MDC.put("log.name", Cliente.class.getSimpleName());
+	}
+
+	private void createDirectories(){
+		File appDir = new File(this.appDir);
+		File clienteDir = new File(this.clienteDirectory);
+		DirectoryTools.checkOrCreateFolder(appDir.getAbsolutePath());
+		DirectoryTools.checkOrCreateFolder(clienteDir.getAbsolutePath());
 	}
 
 	private void createThreadRefreshListaGateways() {
@@ -93,7 +103,8 @@ public class Cliente{
 		Gson gson = new Gson();
 		Map config;
 		try {
-			config = gson.fromJson(new FileReader(this.clienteDirectory+"config.json"), Map.class);
+			URL url = this.getClass().getClassLoader().getResource("clienteConfig.json");
+			config = gson.fromJson(new FileReader(url.getPath()), Map.class);
 
 			Map redisPub = (Map) config.get("redis_pub");
 			this.redisPubIp = redisPub.get("ip").toString();

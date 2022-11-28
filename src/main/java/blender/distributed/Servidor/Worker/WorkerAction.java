@@ -30,7 +30,6 @@ public class WorkerAction implements IWorkerAction{
 	Gson gson = new Gson();
 	Type RTrabajoType = new TypeToken<RTrabajo>(){}.getType();
 	Type RWorkerType = new TypeToken<RWorker>(){}.getType();
-	Type RListaParteType = new TypeToken<List<RParte>>(){}.getType();
 	Type RParteType = new TypeToken<RParte>(){}.getType();
 	public WorkerAction(List<RGateway> listaGateways, String singleServerDir) {
 		MDC.put("log.name", ClienteAction.class.getSimpleName());
@@ -109,8 +108,8 @@ public class WorkerAction implements IWorkerAction{
 				}
 				if (trabajoTerminado) {
 
-					String workDir = this.singleServerDir + "\\Works\\";
-					String thisWorkDir = this.singleServerDir + "\\Works\\" + recordTrabajo.blendName() + "\\";
+					String workDir = this.singleServerDir + "/Works/";
+					String thisWorkDir = this.singleServerDir + "/Works/" + recordTrabajo.blendName() + "/";
 					DirectoryTools.checkOrCreateFolder(workDir);
 					DirectoryTools.checkOrCreateFolder(thisWorkDir);
 
@@ -127,7 +126,7 @@ public class WorkerAction implements IWorkerAction{
 					});
 
 					try {
-						new ZipFile(thisWorkDir + recordTrabajo.blendName() + ".zip").addFolder(new File(thisWorkDir + "\\RenderedFiles\\"));
+						new ZipFile(thisWorkDir + recordTrabajo.blendName() + ".zip").addFolder(new File(thisWorkDir + "/RenderedFiles/"));
 						File zipResult = new File(thisWorkDir + recordTrabajo.blendName() + ".zip");
 						byte[] zipTrabajoWithRenderedImages = Files.readAllBytes(zipResult.toPath());
 						File workDirFile = new File(thisWorkDir);
