@@ -12,7 +12,6 @@ import blender.distributed.Servidor.Cliente.IClienteAction;
 import blender.distributed.Servidor.Worker.IWorkerAction;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
-import com.google.gson.stream.JsonReader;
 import io.lettuce.core.RedisClient;
 import io.lettuce.core.api.StatefulRedisConnection;
 import io.lettuce.core.api.sync.RedisCommands;
@@ -23,8 +22,6 @@ import org.slf4j.MDC;
 
 import java.io.*;
 import java.lang.reflect.Type;
-import java.net.URISyntaxException;
-import java.net.URL;
 import java.rmi.RemoteException;
 import java.rmi.registry.LocateRegistry;
 import java.rmi.registry.Registry;
@@ -122,7 +119,7 @@ public class Gateway {
 	private void readConfigFile() {
 		Map config;
 		try {
-			InputStream stream = Gateway.class.getClassLoader().getResourceAsStream("gatewayConfig.json");
+			InputStream stream = Gateway.class.getClassLoader().getResourceAsStream("Gateway/config.json");
 			config = gson.fromJson(IOUtils.toString(stream, "UTF-8"), Map.class);
 
 			Map server = (Map) config.get("gateway");

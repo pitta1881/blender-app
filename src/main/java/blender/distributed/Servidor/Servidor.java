@@ -1,5 +1,6 @@
 package blender.distributed.Servidor;
 
+import blender.distributed.Gateway.Gateway;
 import blender.distributed.Records.RGateway;
 import blender.distributed.Servidor.Cliente.ClienteAction;
 import blender.distributed.Servidor.Cliente.IClienteAction;
@@ -13,15 +14,14 @@ import com.google.gson.reflect.TypeToken;
 import io.lettuce.core.RedisClient;
 import io.lettuce.core.api.StatefulRedisConnection;
 import io.lettuce.core.api.sync.RedisCommands;
+import org.apache.commons.io.IOUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
 
 import java.io.File;
-import java.io.FileReader;
 import java.io.IOException;
-import java.net.URISyntaxException;
-import java.net.URL;
+import java.io.InputStream;
 import java.rmi.RemoteException;
 import java.rmi.registry.LocateRegistry;
 import java.rmi.registry.Registry;
@@ -104,8 +104,8 @@ public class Servidor {
 		Gson gson = new Gson();
 		Map config;
 		try {
-			URL url = this.getClass().getClassLoader().getResource("servidorConfig.json");
-			config = gson.fromJson(new FileReader(url.toURI().getPath()), Map.class);
+			InputStream stream = Gateway.class.getClassLoader().getResourceAsStream("Servidor/config.json");
+			config = gson.fromJson(IOUtils.toString(stream, "UTF-8"), Map.class);
 
 			Map rmi = (Map) config.get("rmi");
 			this.rmiPortForClientes = Integer.valueOf(rmi.get("initialPortForClientes").toString());
@@ -116,7 +116,7 @@ public class Servidor {
 			this.redisPubPort = Integer.valueOf(redisPub.get("port").toString());
 			this.redisPubPassword = redisPub.get("password").toString();
 
-		} catch (IOException | URISyntaxException e) {
+		} catch (IOException e) {
 			log.error("Error Archivo Config!");
 		}
 	}

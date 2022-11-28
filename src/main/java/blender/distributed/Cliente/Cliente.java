@@ -1,9 +1,9 @@
 package blender.distributed.Cliente;
 
 import blender.distributed.Cliente.Threads.CheckFinishedTrabajo;
+import blender.distributed.Gateway.Gateway;
 import blender.distributed.Records.RGateway;
 import blender.distributed.Records.RTrabajo;
-import blender.distributed.Servidor.Cliente.IClienteAction;
 import blender.distributed.SharedTools.DirectoryTools;
 import blender.distributed.SharedTools.RefreshListaGatewaysThread;
 import com.google.gson.Gson;
@@ -11,16 +11,15 @@ import com.google.gson.reflect.TypeToken;
 import io.lettuce.core.RedisClient;
 import io.lettuce.core.api.StatefulRedisConnection;
 import io.lettuce.core.api.sync.RedisCommands;
+import org.apache.commons.io.IOUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
 
 import java.io.File;
-import java.io.FileReader;
 import java.io.IOException;
+import java.io.InputStream;
 import java.lang.reflect.Type;
-import java.net.URISyntaxException;
-import java.net.URL;
 import java.nio.file.Files;
 import java.rmi.RemoteException;
 import java.util.List;
@@ -104,8 +103,8 @@ public class Cliente{
 		Gson gson = new Gson();
 		Map config;
 		try {
-			URL url = this.getClass().getClassLoader().getResource("clienteConfig.json");
-			config = gson.fromJson(new FileReader(url.toURI().getPath()), Map.class);
+			InputStream stream = Gateway.class.getClassLoader().getResourceAsStream("Cliente/config.json");
+			config = gson.fromJson(IOUtils.toString(stream, "UTF-8"), Map.class);
 
 			Map redisPub = (Map) config.get("redis_pub");
 			this.redisPubIp = redisPub.get("ip").toString();
@@ -115,7 +114,7 @@ public class Cliente{
 			Map paths = (Map) config.get("paths");
 			this.myRenderedImages = this.clienteDirectory + paths.get("renderedImages");
 
-		} catch (IOException | URISyntaxException e) {
+		} catch (IOException e) {
 			log.error("Error Archivo Config!");
 		} 
 	}
