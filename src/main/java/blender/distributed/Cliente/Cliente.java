@@ -19,6 +19,7 @@ import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
 import java.lang.reflect.Type;
+import java.net.URISyntaxException;
 import java.net.URL;
 import java.nio.file.Files;
 import java.rmi.RemoteException;
@@ -32,7 +33,7 @@ public class Cliente{
 	File file;
 	byte[] fileContent;
 	String appDir = System.getProperty("user.dir") + "/app/";
-	String clienteDirectory = System.getProperty("user.dir") + "Cliente/";
+	String clienteDirectory = appDir + "Cliente/";
 	String myRenderedImages;
 	List<RGateway> listaGateways;
 	RedisClient redisPubClient;
@@ -66,8 +67,8 @@ public class Cliente{
 
 	private void runRedisPubClient() {
 		this.redisPubClient = RedisClient.create("redis://"+this.redisPubPassword+"@"+this.redisPubIp+":"+this.redisPubPort);
-		log.info("Conectado a Redis Público exitosamente.");
 		StatefulRedisConnection redisConnection = this.redisPubClient.connect();
+		log.info("Conectado a Redis Público exitosamente.");
 		RedisCommands commands = redisConnection.sync();
 		this.listaGateways = new Gson().fromJson(String.valueOf(commands.hvals("listaGateways")), new TypeToken<List<RGateway>>(){}.getType());
 		redisConnection.close();
@@ -104,7 +105,7 @@ public class Cliente{
 		Map config;
 		try {
 			URL url = this.getClass().getClassLoader().getResource("clienteConfig.json");
-			config = gson.fromJson(new FileReader(url.getPath()), Map.class);
+			config = gson.fromJson(new FileReader(url.toURI().getPath()), Map.class);
 
 			Map redisPub = (Map) config.get("redis_pub");
 			this.redisPubIp = redisPub.get("ip").toString();
@@ -114,7 +115,7 @@ public class Cliente{
 			Map paths = (Map) config.get("paths");
 			this.myRenderedImages = this.clienteDirectory + paths.get("renderedImages");
 
-		} catch (IOException e) {
+		} catch (IOException | URISyntaxException e) {
 			log.error("Error Archivo Config!");
 		} 
 	}

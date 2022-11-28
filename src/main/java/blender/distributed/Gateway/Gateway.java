@@ -22,6 +22,7 @@ import org.slf4j.MDC;
 import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.lang.reflect.Type;
+import java.net.URISyntaxException;
 import java.net.URL;
 import java.rmi.RemoteException;
 import java.rmi.registry.LocateRegistry;
@@ -120,8 +121,8 @@ public class Gateway {
 	private void readConfigFile() {
 		Map config;
 		try {
-			URL url = this.getClass().getClassLoader().getResource("gatewayConfig.json");
-			config = gson.fromJson(new FileReader(url.getPath()), Map.class);
+			URL url = Gateway.class.getClassLoader().getResource("gatewayConfig.json");
+			config = gson.fromJson(new FileReader(url.toURI().getPath()), Map.class);
 
 			Map server = (Map) config.get("gateway");
 			this.myIp = server.get("ip").toString();
@@ -142,6 +143,8 @@ public class Gateway {
 			this.redisPubPassword = redisPub.get("password").toString();
 
 		} catch (FileNotFoundException e) {
+			throw new RuntimeException(e);
+		} catch (URISyntaxException e) {
 			throw new RuntimeException(e);
 		}
 	}

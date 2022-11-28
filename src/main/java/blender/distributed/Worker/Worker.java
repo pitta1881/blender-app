@@ -22,6 +22,7 @@ import org.slf4j.MDC;
 import java.io.*;
 import java.lang.reflect.Type;
 import java.net.Inet4Address;
+import java.net.URISyntaxException;
 import java.net.URL;
 import java.nio.file.Files;
 import java.rmi.RemoteException;
@@ -238,8 +239,9 @@ public class Worker {
 		log.info("Intentando descargar... Porfavor espere, este proceso podria tardar varios minutos...");
 		try {
 			FileUtils.copyURLToFile(
-					//new URL(this.urlBlenderPortable),
-					new URL("file:/home/debian/Desktop/blender-3.3.1-linux-x64.tar.xz"),
+					new URL(this.urlBlenderPortable),
+					//new URL("file:/E:\\Bibliotecas\\Desktop\\blender-3.3.1-windows-x64.zip"),
+					//new URL("file:/home/debian/Desktop/blender-3.3.1-linux-x64.tar.xz"),
 					new File(this.singleWorkerDir + this.blenderPortable),
 					10000,
 					10000);
@@ -296,7 +298,7 @@ public class Worker {
 		try {
 			this.localIp = Inet4Address.getLocalHost().getHostAddress();
 			URL url = this.getClass().getClassLoader().getResource("workerConfig.json");
-			config = gson.fromJson(new FileReader(url.getPath()), Map.class);
+			config = gson.fromJson(new FileReader(url.toURI().getPath()), Map.class);
 
 			Map redisPub = (Map) config.get("redis_pub");
 			this.redisPubIp = redisPub.get("ip").toString();
@@ -318,7 +320,7 @@ public class Worker {
 				this.blenderPortable += ".tar.xz";
 			}
 
-		} catch (IOException e) {
+		} catch (IOException | URISyntaxException e) {
 			log.error("Error Archivo Config!");
 		}
 	}
