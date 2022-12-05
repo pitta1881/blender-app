@@ -1,8 +1,6 @@
 {
 	"redis_pub":{
-		"ip" : "127.0.0.1",
-		"port" : "6379",
-		"password": "public"
+		"uri": "redis://RedisPublic:Public123!@redis-14060.c1.us-east1-2.gce.cloud.redislabs.com:14060"
 	},
   "rmi": {
   			 "initialPortForClientes":"9151",

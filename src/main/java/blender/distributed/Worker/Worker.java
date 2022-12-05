@@ -54,9 +54,7 @@ public class Worker {
 	String localIp;
 	//server
 	RedisClient redisPubClient;
-	private String redisPubIp;
-	private int redisPubPort;
-	private String redisPubPassword;
+	private String redisPubURI;
 	List<RGateway> listaGateways = new ArrayList<>();
 	Gson gson = new Gson();
 	Type RListaGatewayType = new TypeToken<List<RGateway>>(){}.getType();
@@ -70,7 +68,7 @@ public class Worker {
 		createThreadRefreshListaGateways();
 		createThreadSendPingAlive();
 		if (checkNeededFiles()) {
-			//getWork();
+			getWork();
 		} else {
 			log.debug("Error inesperado!");
 		}
@@ -206,7 +204,7 @@ public class Worker {
 
 
 	private void runRedisPubClient() {
-		this.redisPubClient = RedisClient.create("redis://"+this.redisPubPassword+"@"+this.redisPubIp+":"+this.redisPubPort);
+		this.redisPubClient = RedisClient.create(this.redisPubURI);
 		StatefulRedisConnection redisConnection = this.redisPubClient.connect();
 		log.info("Conectado a Redis Público exitosamente.");
 		RedisCommands commands = redisConnection.sync();
@@ -240,8 +238,8 @@ public class Worker {
 		log.info("Intentando descargar... Porfavor espere, este proceso podria tardar varios minutos...");
 		try {
 			FileUtils.copyURLToFile(
-					//new URL(this.urlBlenderPortable),
-					new URL("file:/E:\\Bibliotecas\\Desktop\\blender-3.3.1-windows-x64.zip"),
+					new URL(this.urlBlenderPortable),
+					//new URL("file:/E:\\Bibliotecas\\Desktop\\blender-3.3.1-windows-x64.zip"),
 					//new URL("file:/home/debian/Desktop/blender-3.3.1-linux-x64.tar.xz"),
 					new File(this.singleWorkerDir + this.blenderPortable),
 					10000,
@@ -303,9 +301,7 @@ public class Worker {
 			config = gson.fromJson(IOUtils.toString(stream, "UTF-8"), Map.class);
 
 			Map redisPub = (Map) config.get("redis_pub");
-			this.redisPubIp = redisPub.get("ip").toString();
-			this.redisPubPort = Integer.valueOf(redisPub.get("port").toString());
-			this.redisPubPassword = redisPub.get("password").toString();
+			this.redisPubURI = redisPub.get("uri").toString();
 
 			Map paths = (Map) config.get("paths");
 			this.blenderExe = this.singleWorkerDir + paths.get("blenderExe");

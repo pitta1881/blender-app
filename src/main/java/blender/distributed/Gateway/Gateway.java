@@ -48,12 +48,8 @@ public class Gateway {
 	private IGatewayServidorAction remoteServidor;
 
 	//redis related
-	private String redisPrivIp;
-	private int redisPrivPort;
-	private String redisPrivPassword;
-	private String redisPubIp;
-	private int redisPubPort;
-	private String redisPubPassword;
+	private String redisPrivURI;
+	private String redisPubWriteURI;
 	RedisClient redisPrivClient;
 	List<RServidor> listaServidores = new ArrayList<>();
 	boolean flushDb = false;
@@ -131,14 +127,10 @@ public class Gateway {
 			this.rmiPortForServidores = Integer.valueOf(rmi.get("initialPortForServidores").toString());
 
 			Map redisPriv = (Map) config.get("redis_priv");
-			this.redisPrivIp = redisPriv.get("ip").toString();
-			this.redisPrivPort = Integer.valueOf(redisPriv.get("port").toString());
-			this.redisPrivPassword = redisPriv.get("password").toString();
+			this.redisPrivURI = redisPriv.get("uri").toString();
 
 			Map redisPub = (Map) config.get("redis_pub");
-			this.redisPubIp = redisPub.get("ip").toString();
-			this.redisPubPort = Integer.valueOf(redisPub.get("port").toString());
-			this.redisPubPassword = redisPub.get("password").toString();
+			this.redisPubWriteURI = redisPub.get("uri").toString();
 
 		} catch (IOException e) {
 			throw new RuntimeException(e);
@@ -146,7 +138,7 @@ public class Gateway {
 	}
 
 	private void runRedisPubClient() {
-		RedisClient redisPubClient = RedisClient.create("redis://"+this.redisPubPassword+"@"+this.redisPubIp+":"+this.redisPubPort);
+		RedisClient redisPubClient = RedisClient.create(this.redisPubWriteURI);
 		StatefulRedisConnection redisConnection = redisPubClient.connect();
 		log.info("Conectado a Redis Público exitosamente.");
 		RedisCommands commands = redisConnection.sync();
@@ -159,7 +151,7 @@ public class Gateway {
 	}
 
 	private void runRedisPrivClient() {
-		this.redisPrivClient = RedisClient.create("redis://"+this.redisPrivPassword+"@"+this.redisPrivIp+":"+this.redisPrivPort);
+		this.redisPrivClient = RedisClient.create(this.redisPrivURI);
 		log.info("Conectado a Redis Privado exitosamente.");
 		StatefulRedisConnection redisConnection = this.redisPrivClient.connect();
 		RedisCommands commands = redisConnection.sync();

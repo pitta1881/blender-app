@@ -46,9 +46,7 @@ public class Servidor {
 	private IClienteAction remoteCliente;
 	private IWorkerAction remoteWorker;
 
-	private String redisPubIp;
-	private int redisPubPort;
-	private String redisPubPassword;
+	private String redisPubURI;
 	List<RGateway> listaGateways;
 	String uuid;
 	RedisClient redisPubClient;
@@ -112,9 +110,7 @@ public class Servidor {
 			this.rmiPortForWorkers = Integer.valueOf(rmi.get("initialPortForWorkers").toString());
 
 			Map redisPub = (Map) config.get("redis_pub");
-			this.redisPubIp = redisPub.get("ip").toString();
-			this.redisPubPort = Integer.valueOf(redisPub.get("port").toString());
-			this.redisPubPassword = redisPub.get("password").toString();
+			this.redisPubURI = redisPub.get("uri").toString();
 
 		} catch (IOException e) {
 			log.error("Error Archivo Config!");
@@ -133,7 +129,7 @@ public class Servidor {
 	}
 
 	private void runRedisPubClient() {
-		this.redisPubClient = RedisClient.create("redis://"+this.redisPubPassword+"@"+this.redisPubIp+":"+this.redisPubPort);
+		this.redisPubClient = RedisClient.create(this.redisPubURI);
 		StatefulRedisConnection redisConnection = this.redisPubClient.connect();
 		log.info("Conectado a Redis Público exitosamente.");
 		RedisCommands commands = redisConnection.sync();

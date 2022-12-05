@@ -36,9 +36,7 @@ public class Cliente{
 	String myRenderedImages;
 	List<RGateway> listaGateways;
 	RedisClient redisPubClient;
-	private String redisPubIp;
-	private int redisPubPort;
-	private String redisPubPassword;
+	private String redisPubURI;
 	Gson gson = new Gson();
 	Type RTrabajoType = new TypeToken<RTrabajo>(){}.getType();
 
@@ -65,7 +63,7 @@ public class Cliente{
 	}
 
 	private void runRedisPubClient() {
-		this.redisPubClient = RedisClient.create("redis://"+this.redisPubPassword+"@"+this.redisPubIp+":"+this.redisPubPort);
+		this.redisPubClient = RedisClient.create(this.redisPubURI);
 		StatefulRedisConnection redisConnection = this.redisPubClient.connect();
 		log.info("Conectado a Redis Público exitosamente.");
 		RedisCommands commands = redisConnection.sync();
@@ -107,9 +105,7 @@ public class Cliente{
 			config = gson.fromJson(IOUtils.toString(stream, "UTF-8"), Map.class);
 
 			Map redisPub = (Map) config.get("redis_pub");
-			this.redisPubIp = redisPub.get("ip").toString();
-			this.redisPubPort = Integer.valueOf(redisPub.get("port").toString());
-			this.redisPubPassword = redisPub.get("password").toString();
+			this.redisPubURI = redisPub.get("uri").toString();
 
 			Map paths = (Map) config.get("paths");
 			this.myRenderedImages = this.clienteDirectory + paths.get("renderedImages");
