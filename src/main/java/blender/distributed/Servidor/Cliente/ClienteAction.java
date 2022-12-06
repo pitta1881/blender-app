@@ -5,13 +5,12 @@ import blender.distributed.Records.RGateway;
 import blender.distributed.Records.RParte;
 import blender.distributed.Records.RTrabajo;
 import com.google.gson.Gson;
-import com.google.gson.reflect.TypeToken;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
 
-import java.lang.reflect.Type;
 import java.rmi.RemoteException;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -21,20 +20,21 @@ import static blender.distributed.Gateway.Tools.connectRandomGatewayRMIForServid
 public class ClienteAction implements IClienteAction {
 	Logger log = LoggerFactory.getLogger(ClienteAction.class);
 	List<RGateway> listaGateways;
-	int frameDivision = 100;
+	int frameDivision;
 	Gson gson = new Gson();
 
-	public ClienteAction(List<RGateway> listaGateways) {
+	public ClienteAction(List<RGateway> listaGateways, int frameDivision) {
 		MDC.put("log.name", ClienteAction.class.getSimpleName());
 		this.listaGateways = listaGateways;
+		this.frameDivision = frameDivision;
 	}
     @Override
 	public String renderRequest(byte[] blendFile, String blendName, int startFrame, int endFrame) {
 		String uuid = UUID.randomUUID().toString();
 		try {
-			String url = connectRandomGatewayRMIForServidor(this.listaGateways).storeBlendFile(blendName, blendFile);
+			connectRandomGatewayRMIForServidor(this.listaGateways).storeBlendFile(uuid+".blend", blendFile);
 			List<String> listaUUIDPartes = dividirEnPartes(uuid, startFrame, endFrame);
-			RTrabajo recordTrabajo = new RTrabajo(uuid, blendName, startFrame, endFrame, EStatus.TO_DO, listaUUIDPartes, url);
+			RTrabajo recordTrabajo = new RTrabajo(uuid, blendName, startFrame, endFrame, EStatus.TO_DO, listaUUIDPartes, uuid+".blend", null, LocalDateTime.now().toString());
 			String json = gson.toJson(recordTrabajo);
 			connectRandomGatewayRMIForServidor(this.listaGateways).setTrabajo(uuid, json);
 			log.info("Registrando nuevo trabajo: " + recordTrabajo);

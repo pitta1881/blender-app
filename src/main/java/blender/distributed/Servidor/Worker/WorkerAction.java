@@ -90,8 +90,8 @@ public class WorkerAction implements IWorkerAction{
 			String recordParteJson = connectRandomGatewayRMIForServidor(this.listaGateways).getParte(uuidParte);
 			RParte recordParte = gson.fromJson(recordParteJson, RParteType);
 			if (recordParte != null) {
-				String urlZipParte = connectRandomGatewayRMIForServidor(this.listaGateways).storeZipFile(uuidParte, zipParteWithRenderedImages);
-				RParte recordParteUpdated = new RParte(recordParte.uuidTrabajo(), recordParte.uuid(),recordParte.startFrame(), recordParte.endFrame(), EStatus.DONE, urlZipParte);
+				connectRandomGatewayRMIForServidor(this.listaGateways).storePartZipFile(uuidParte+".zip", zipParteWithRenderedImages);
+				RParte recordParteUpdated = new RParte(recordParte.uuidTrabajo(), recordParte.uuid(),recordParte.startFrame(), recordParte.endFrame(), EStatus.DONE, uuidParte+".zip");
 				connectRandomGatewayRMIForServidor(this.listaGateways).setParte(recordParte.uuid(), gson.toJson(recordParteUpdated));
 
 				String recordTrabajoJson = connectRandomGatewayRMIForServidor(this.listaGateways).getTrabajo(recordParte.uuidTrabajo());
@@ -108,37 +108,60 @@ public class WorkerAction implements IWorkerAction{
 				}
 				if (trabajoTerminado) {
 					String workDir = this.singleServerDir + "/Works/";
-					String thisWorkDir = this.singleServerDir + "/Works/" + recordTrabajo.blendName() + "/";
+					String thisWorkDir = this.singleServerDir + "/Works/" + recordTrabajo.uuid() + "/";
 					DirectoryTools.checkOrCreateFolder(workDir);
 					DirectoryTools.checkOrCreateFolder(thisWorkDir);
 
+					byte[] zipTrabajoWithRenderedImages = new byte[0];
+					if(recordTrabajo.listaPartes().size() == 1){
+						zipTrabajoWithRenderedImages = zipParteWithRenderedImages;
+					} else {
+						recordTrabajo.listaPartes().forEach(parte -> {
+							String zipPartPath = thisWorkDir + recordTrabajo.uuid() + "__part__" + parte + ".zip";
+							File zipPartFile = new File(zipPartPath);
+							try (FileOutputStream fos = new FileOutputStream(zipPartFile)) {
+								byte[] bytesZipParte = connectRandomGatewayRMIForServidor(this.listaGateways).getPartZipFile(parte + ".zip");
+								fos.write(bytesZipParte);
+								new ZipFile(zipPartPath).extractAll(thisWorkDir + "/RenderedFiles/");
+							} catch (Exception e) {
+								log.error("ERROR: " + e.getMessage());
+							}
+						});
+
+						try {
+							new ZipFile(thisWorkDir + recordTrabajo.uuid() + ".zip").addFolder(new File(thisWorkDir + "/RenderedFiles/"));
+							File zipResult = new File(thisWorkDir + recordTrabajo.uuid() + ".zip");
+							zipTrabajoWithRenderedImages = Files.readAllBytes(zipResult.toPath());
+						} catch (IOException e) {
+							throw new RuntimeException(e);
+						}
+					}
+					connectRandomGatewayRMIForServidor(this.listaGateways).storeFinalZipFile(recordTrabajo.uuid()+".zip", zipTrabajoWithRenderedImages);
+					connectRandomGatewayRMIForServidor(this.listaGateways).setTrabajo(recordTrabajo.uuid(), gson.toJson(new RTrabajo(recordTrabajo.uuid(), recordTrabajo.blendName(), recordTrabajo.startFrame(), recordTrabajo.endFrame(), EStatus.DONE, recordTrabajo.listaPartes(), recordTrabajo.gStorageBlendName(), recordTrabajo.uuid()+".zip", recordTrabajo.createdAt())));
+					connectRandomGatewayRMIForServidor(this.listaGateways).deleteBlendFile(recordTrabajo.gStorageBlendName());
 					recordTrabajo.listaPartes().forEach(parte -> {
-						String zipPartPath = thisWorkDir + recordTrabajo.blendName() + "__part__" + parte + ".zip";
-						File zipPartFile = new File(zipPartPath);
-						try (FileOutputStream fos = new FileOutputStream(zipPartFile)) {
-							byte[] bytesZipParte = connectRandomGatewayRMIForServidor(this.listaGateways).getZipFile(parte);
-							fos.write(bytesZipParte);
-							new ZipFile(zipPartPath).extractAll(thisWorkDir);
-						} catch (Exception e) {
-							log.error("ERROR: " + e.getMessage());
+						try {
+							connectRandomGatewayRMIForServidor(this.listaGateways).deletePartZipFile(parte+".zip");
+							connectRandomGatewayRMIForServidor(this.listaGateways).delParte(parte);
+						} catch (RemoteException e) {
+							throw new RuntimeException(e);
 						}
 					});
-
-					try {
-						new ZipFile(thisWorkDir + recordTrabajo.blendName() + ".zip").addFolder(new File(thisWorkDir + "/RenderedFiles/"));
-						File zipResult = new File(thisWorkDir + recordTrabajo.blendName() + ".zip");
-						byte[] zipTrabajoWithRenderedImages = Files.readAllBytes(zipResult.toPath());
-						File workDirFile = new File(thisWorkDir);
-						DirectoryTools.deleteDirectory(workDirFile);
-						String urlZipFinal = connectRandomGatewayRMIForServidor(this.listaGateways).storeZipFile(uuidParte, zipTrabajoWithRenderedImages);
-						connectRandomGatewayRMIForServidor(this.listaGateways).setTrabajo(recordTrabajo.uuid(), gson.toJson(new RTrabajo(recordTrabajo.uuid(), recordTrabajo.blendName(), recordTrabajo.startFrame(), recordTrabajo.endFrame(), EStatus.DONE, recordTrabajo.listaPartes(), urlZipFinal)));
-					} catch (IOException e) {
-						throw new RuntimeException(e);
-					}
+					File workDirFile = new File(thisWorkDir);
+					DirectoryTools.deleteDirectory(workDirFile);
 				}
 			}
 		} catch (RemoteException | NullPointerException e) {
 			setParteDone(workerName, uuidParte, zipParteWithRenderedImages);
+		}
+	}
+
+	@Override
+	public byte[] getBlendFile(String gStorageBlendName) {
+		try {
+			return connectRandomGatewayRMIForServidor(this.listaGateways).getBlendFile(gStorageBlendName);
+		} catch (RemoteException e) {
+			return getBlendFile(gStorageBlendName);
 		}
 	}
 }

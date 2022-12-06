@@ -29,7 +29,7 @@ import java.util.Map;
 import static blender.distributed.Cliente.Tools.connectRandomGatewayRMI;
 
 public class Cliente{
-	static Logger log = LoggerFactory.getLogger(Cliente.class);
+	Logger log = LoggerFactory.getLogger(this.getClass());
 	File file;
 	byte[] fileContent;
 	String appDir = System.getProperty("user.dir") + "/app/";
@@ -102,7 +102,7 @@ public class Cliente{
 		Gson gson = new Gson();
 		Map config;
 		try {
-			InputStream stream = Gateway.class.getClassLoader().getResourceAsStream("Cliente/config.json");
+			InputStream stream = this.getClass().getClassLoader().getResourceAsStream("Cliente/config.json");
 			config = gson.fromJson(IOUtils.toString(stream, "UTF-8"), Map.class);
 
 			this.redisPubURI = "redis://"+dotenv.get("REDIS_PUBLIC_USER")+":"+dotenv.get("REDIS_PUBLIC_PASS")+"@"+dotenv.get("REDIS_PUBLIC_IP")+":"+dotenv.get("REDIS_PUBLIC_PORT");

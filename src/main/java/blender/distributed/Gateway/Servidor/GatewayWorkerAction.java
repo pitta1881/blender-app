@@ -52,6 +52,15 @@ public class GatewayWorkerAction implements IWorkerAction {
 		}
 	}
 
+	@Override
+	public byte[] getBlendFile(String gStorageBlendName) {
+		try {
+			return connectRandomServidorRMIForWorker().getBlendFile(gStorageBlendName);
+		} catch (RemoteException | NullPointerException e) {
+			return getBlendFile(gStorageBlendName);
+		}
+	}
+
 	private IWorkerAction connectRandomServidorRMIForWorker() {
 		IWorkerAction stubServidor = null;
 		if(this.listaServidores.size() > 0) {

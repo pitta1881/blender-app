@@ -34,7 +34,7 @@ import io.github.cdimascio.dotenv.Dotenv;
 
 public class Gateway {
 	//General settings
-	Logger log = LoggerFactory.getLogger(Gateway.class);
+	Logger log = LoggerFactory.getLogger(this.getClass());
 	private String myIp;
 
 	//RMI
@@ -117,7 +117,7 @@ public class Gateway {
 	private void readConfigFile() {
 		Map config;
 		try {
-			InputStream stream = Gateway.class.getClassLoader().getResourceAsStream("Gateway/config.json");
+			InputStream stream = this.getClass().getClassLoader().getResourceAsStream("Gateway/config.json");
 			config = gson.fromJson(IOUtils.toString(stream, "UTF-8"), Map.class);
 
 			Map server = (Map) config.get("gateway");

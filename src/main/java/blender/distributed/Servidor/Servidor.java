@@ -1,6 +1,5 @@
 package blender.distributed.Servidor;
 
-import blender.distributed.Gateway.Gateway;
 import blender.distributed.Records.RGateway;
 import blender.distributed.Servidor.Cliente.ClienteAction;
 import blender.distributed.Servidor.Cliente.IClienteAction;
@@ -34,7 +33,7 @@ import static blender.distributed.Gateway.Tools.connectRandomGatewayRMIForServid
 
 public class Servidor {
 	//General settings
-	Logger log = LoggerFactory.getLogger(Servidor.class);
+	Logger log = LoggerFactory.getLogger(this.getClass());
 	String appDir = System.getProperty("user.dir") + "/app/";
 	String serverDirectory = appDir + "Servidor/";
 	String singleServerDir;
@@ -52,6 +51,7 @@ public class Servidor {
 	String uuid;
 	RedisClient redisPubClient;
 	Dotenv dotenv = Dotenv.load();
+	int frameDivision;
 
 
 	public Servidor() {
@@ -83,7 +83,7 @@ public class Servidor {
 			registryCli = LocateRegistry.createRegistry(rmiPortForClientes);
 			registrySv = LocateRegistry.createRegistry(rmiPortForWorkers);
 
-			remoteCliente = (IClienteAction) UnicastRemoteObject.exportObject(new ClienteAction(this.listaGateways),0);
+			remoteCliente = (IClienteAction) UnicastRemoteObject.exportObject(new ClienteAction(this.listaGateways, this.frameDivision),0);
 			remoteWorker = (IWorkerAction) UnicastRemoteObject.exportObject(new WorkerAction(this.listaGateways, this.singleServerDir),0);
 
 			registryCli.rebind("clienteAction", remoteCliente);
@@ -104,12 +104,15 @@ public class Servidor {
 		Gson gson = new Gson();
 		Map config;
 		try {
-			InputStream stream = Gateway.class.getClassLoader().getResourceAsStream("Servidor/config.json");
+			InputStream stream = this.getClass().getClassLoader().getResourceAsStream("Servidor/config.json");
 			config = gson.fromJson(IOUtils.toString(stream, "UTF-8"), Map.class);
 
 			Map rmi = (Map) config.get("rmi");
 			this.rmiPortForClientes = Integer.valueOf(rmi.get("initialPortForClientes").toString());
 			this.rmiPortForWorkers = Integer.valueOf(rmi.get("initialPortForWorkers").toString());
+
+			Map tools = (Map) config.get("tools");
+			this.frameDivision = Integer.valueOf(tools.get("frameDivision").toString());
 
 			this.redisPubURI = "redis://"+dotenv.get("REDIS_PUBLIC_USER")+":"+dotenv.get("REDIS_PUBLIC_PASS")+"@"+dotenv.get("REDIS_PUBLIC_IP")+":"+dotenv.get("REDIS_PUBLIC_PORT");
 

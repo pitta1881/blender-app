@@ -1,6 +1,5 @@
 package blender.distributed.Worker;
 
-import blender.distributed.Gateway.Gateway;
 import blender.distributed.Records.RGateway;
 import blender.distributed.Records.RTrabajoParte;
 import blender.distributed.SharedTools.DirectoryTools;
@@ -40,7 +39,7 @@ import static blender.distributed.Worker.Tools.connectRandomGatewayRMI;
 
 public class Worker {
 	//General
-	Logger log = LoggerFactory.getLogger(Worker.class);
+	Logger log = LoggerFactory.getLogger(this.getClass());
 	String blenderPortable;
 	String appDir = System.getProperty("user.dir") + "/app/";
 	String workerDir = appDir + "Worker/";
@@ -92,38 +91,38 @@ public class Worker {
 		while (true) {
 			String recordTrabajoParteJson = null;
 			RTrabajoParte recordTrabajoParte = null;
-				while (recordTrabajoParteJson == null){
-					try {
-						recordTrabajoParteJson = connectRandomGatewayRMI(this.listaGateways).getWorkToDo(this.workerName);
-						if(recordTrabajoParteJson == null) {
-							Thread.sleep(1000);
-						}
-					} catch (InterruptedException | RemoteException e) {
-						e.printStackTrace();
+			while (recordTrabajoParteJson == null){
+				try {
+					recordTrabajoParteJson = connectRandomGatewayRMI(this.listaGateways).getWorkToDo(this.workerName);
+					if(recordTrabajoParteJson == null) {
+						Thread.sleep(1000);
 					}
+				} catch (InterruptedException | RemoteException e) {
+					e.printStackTrace();
 				}
-				recordTrabajoParte = gson.fromJson(recordTrabajoParteJson, RTrabajoParteType);
-				File thisWorkDir = new File(this.worksDir + recordTrabajoParte.rParte().uuid());
-				DirectoryTools.checkOrCreateFolder(thisWorkDir.getPath());
-				File thisWorkRenderDir = new File(thisWorkDir + this.rendersDir);
-				DirectoryTools.checkOrCreateFolder(thisWorkRenderDir.getPath());
-				File thisWorkBlendDir = new File(thisWorkDir + this.blendDir);
-				DirectoryTools.checkOrCreateFolder(thisWorkBlendDir.getPath());
-				log.info("Recibi un nuevo trabajo: " + recordTrabajoParte.rParte().uuid());
-				byte[] blendFileBytes = downloadBlendFileByURL(recordTrabajoParte.rTrabajo().urlBlendFile());
-				File blendFile = persistBlendFile(blendFileBytes, thisWorkBlendDir.getPath(), recordTrabajoParte.rTrabajo().blendName());
-				startRender(recordTrabajoParte, thisWorkRenderDir.getPath(), blendFile);
-				DirectoryTools.deleteDirectory(thisWorkDir);
+			}
+			recordTrabajoParte = gson.fromJson(recordTrabajoParteJson, RTrabajoParteType);
+			File thisWorkDir = new File(this.worksDir + recordTrabajoParte.rParte().uuid());
+			DirectoryTools.checkOrCreateFolder(thisWorkDir.getPath());
+			File thisWorkRenderDir = new File(thisWorkDir + this.rendersDir);
+			DirectoryTools.checkOrCreateFolder(thisWorkRenderDir.getPath());
+			File thisWorkBlendDir = new File(thisWorkDir + this.blendDir);
+			DirectoryTools.checkOrCreateFolder(thisWorkBlendDir.getPath());
+			log.info("Recibi un nuevo trabajo: " + recordTrabajoParte.rParte().uuid());
+			byte[] blendFileBytes = new byte[0];
+			try {
+				blendFileBytes = connectRandomGatewayRMI(this.listaGateways).getBlendFile(recordTrabajoParte.rTrabajo().gStorageBlendName());
+			} catch (RemoteException e) {
+				throw new RuntimeException(e);
+			}
+			File blendFile = persistBlendFile(blendFileBytes, thisWorkBlendDir.getPath(), recordTrabajoParte.rTrabajo().gStorageBlendName());
+			startRender(recordTrabajoParte, thisWorkRenderDir.getPath(), blendFile);
+			DirectoryTools.deleteDirectory(thisWorkDir);
 		}
 	}
 
-	private byte[] downloadBlendFileByURL(String urlBlendFile) {
-		return new byte[0];
-	}
-
-
-	private File persistBlendFile(byte[] byteBlend, String thisWorkBlendDir, String blendName) {
-		File blend = new File(thisWorkBlendDir + "/" + blendName);
+	private File persistBlendFile(byte[] byteBlend, String thisWorkBlendDir, String gStorageBlendName) {
+		File blend = new File(thisWorkBlendDir + "/" + gStorageBlendName);
 		try (FileOutputStream fos = new FileOutputStream(blend)) {
 			fos.write(byteBlend);
 		} catch (Exception e) {
@@ -182,12 +181,12 @@ public class Worker {
 			throw new RuntimeException(e);
 		}
 		try {
-			new ZipFile(thisWorkRenderDir + recordTrabajoParte.rTrabajo().blendName()+".zip").addFolder(new File(thisWorkRenderDir));
+			new ZipFile(thisWorkRenderDir + recordTrabajoParte.rTrabajo().gStorageBlendName()+".zip").addFolder(new File(thisWorkRenderDir));
 		} catch (ZipException e) {
 			throw new RuntimeException(e);
 		}
 		try {
-			File zipRenderedImages = new File(thisWorkRenderDir + recordTrabajoParte.rTrabajo().blendName()+".zip");
+			File zipRenderedImages = new File(thisWorkRenderDir + recordTrabajoParte.rTrabajo().gStorageBlendName()+".zip");
 			byte[] zipWithRenderedImages = Files.readAllBytes(zipRenderedImages.toPath());
 			boolean zipSent = false;
 			while(!zipSent) {
@@ -300,7 +299,7 @@ public class Worker {
 		try {
 			this.localIp = Inet4Address.getLocalHost().getHostAddress();
 
-			InputStream stream = Gateway.class.getClassLoader().getResourceAsStream("Worker/config.json");
+			InputStream stream = Worker.class.getClassLoader().getResourceAsStream("Worker/config.json");
 			config = gson.fromJson(IOUtils.toString(stream, "UTF-8"), Map.class);
 
 			this.redisPubURI = "redis://"+dotenv.get("REDIS_PUBLIC_USER")+":"+dotenv.get("REDIS_PUBLIC_PASS")+"@"+dotenv.get("REDIS_PUBLIC_IP")+":"+dotenv.get("REDIS_PUBLIC_PORT");

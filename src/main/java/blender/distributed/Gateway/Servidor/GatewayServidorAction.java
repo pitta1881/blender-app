@@ -2,20 +2,23 @@ package blender.distributed.Gateway.Servidor;
 
 import blender.distributed.Records.RServidor;
 import com.google.gson.Gson;
-import com.google.gson.reflect.TypeToken;
+import io.github.cdimascio.dotenv.Dotenv;
 import io.lettuce.core.RedisClient;
 import io.lettuce.core.api.StatefulRedisConnection;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
 
-import java.lang.reflect.Type;
+import java.io.IOException;
 import java.rmi.RemoteException;
 import java.rmi.server.ServerNotActiveException;
 import java.time.LocalTime;
 import java.util.List;
 import java.util.UUID;
 
+import static blender.distributed.Gateway.GStorage.DeleteObject.deleteObject;
+import static blender.distributed.Gateway.GStorage.DownloadObjectIntoMemory.downloadObjectIntoMemory;
+import static blender.distributed.Gateway.GStorage.UploadObjectFromMemory.uploadObjectFromMemory;
 import static java.rmi.server.RemoteServer.getClientHost;
 
 public class GatewayServidorAction implements IGatewayServidorAction {
@@ -23,11 +26,16 @@ public class GatewayServidorAction implements IGatewayServidorAction {
 	List<RServidor> listaServidores;
 	Gson gson = new Gson();
 	StatefulRedisConnection redisConnection;
+	Dotenv dotenv = Dotenv.load();
+	String projectId = dotenv.get("PROJECT_ID");
+	String blendBucketName = dotenv.get("BLEND_BUCKET_NAME");
+	String partZipBucketName = dotenv.get("PART_ZIP_BUCKET_NAME");
+	String finalZipBucketName = dotenv.get("FINAL_ZIP_BUCKET_NAME");
 
 	public GatewayServidorAction(RedisClient redisPrivClient, List<RServidor> listaServidores) {
 		MDC.put("log.name", GatewayServidorAction.class.getSimpleName());
 		this.listaServidores = listaServidores;
-		redisConnection = redisPrivClient.connect();
+		this.redisConnection = redisPrivClient.connect();
 	}
 	@Override
 	public String helloGatewayFromServidor(int rmiPortForClientes, int rmiPortForWorkers) {
@@ -54,34 +62,18 @@ public class GatewayServidorAction implements IGatewayServidorAction {
 		redisConnection.sync().hset("listaServidores", uuidServidor ,json);
 	}
 	@Override
-	public String getWorker(String workerName) {		
-		String workerRecordJson = String.valueOf(redisConnection.sync().hget("listaWorkers", workerName));
-		return workerRecordJson;
-	}
-	@Override
-	public String getAllWorkers() throws RemoteException {
-		String listaWorkersJson = String.valueOf(redisConnection.sync().hvals("listaWorkers"));
-		return listaWorkersJson;
+	public String getWorker(String workerName) {
+		return String.valueOf(redisConnection.sync().hget("listaWorkers", workerName));
 	}
 
 	@Override
-	public void setWorker(String workerName, String recordWorkerJson) throws RemoteException {
+	public void setWorker(String workerName, String recordWorkerJson) {
 		redisConnection.sync().hset("listaWorkers", workerName, recordWorkerJson);
 	}
 
 	@Override
-	public void delWorker(String workerName) {
-		redisConnection.sync().hdel("listaWorkers", workerName);
-	}
-	@Override
 	public String getTrabajo(String uuidTrabajo) {
-		String trabajoRecordJson = String.valueOf(redisConnection.sync().hget("listaTrabajos", uuidTrabajo));
-		return trabajoRecordJson;
-	}
-	@Override
-	public String getAllTrabajos() {
-		String listaTrabajosJson = String.valueOf(redisConnection.sync().hvals("listaTrabajos"));
-		return listaTrabajosJson;
+		return String.valueOf(redisConnection.sync().hget("listaTrabajos", uuidTrabajo));
 	}
 	@Override
 	public void setTrabajo(String uuidTrabajo, String recordTrabajoJson) {
@@ -93,13 +85,11 @@ public class GatewayServidorAction implements IGatewayServidorAction {
 	}
 	@Override
 	public String getParte(String uuidParte) {
-		String parteRecordJson = String.valueOf(redisConnection.sync().hget("listaPartes", uuidParte));
-		return parteRecordJson;
+		return String.valueOf(redisConnection.sync().hget("listaPartes", uuidParte));
 	}
 	@Override
 	public List<String> getAllPartes() {
-		List<String> listaPartesJson = redisConnection.sync().hvals("listaPartes");
-		return listaPartesJson;
+		return redisConnection.sync().hvals("listaPartes");
 	}
 	@Override
 	public void setParte(String uuidParte, String recordParteJson) {
@@ -110,21 +100,60 @@ public class GatewayServidorAction implements IGatewayServidorAction {
 		redisConnection.sync().hdel("listaPartes", uuidParte);
 	}
 	@Override
-	public String storeBlendFile(String blendName, byte[] blendFile) {
-		//TODO: store somewhere this blendFile
-		return "https://example.cloud.com/"+blendName+".blend";
+	public void storeBlendFile(String gStorageBlendName, byte[] blendFile) {
+		try {
+			uploadObjectFromMemory(this.projectId, this.blendBucketName, gStorageBlendName, blendFile);
+		} catch (IOException e) {
+			throw new RuntimeException(e);
+		}
 	}
-
 	@Override
-	public String storeZipFile(String zipName, byte[] zipFile) throws RemoteException {
-		//TODO: store somewhere this zipFile
-		return "https://example.cloud.com/"+zipName+".zip";
+	public byte[] getBlendFile(String gStorageBlendName) {
+		try {
+			return downloadObjectIntoMemory(this.projectId, this.blendBucketName, gStorageBlendName);
+		} catch (IOException e) {
+			throw new RuntimeException(e);
+		}
 	}
-
 	@Override
-	public byte[] getZipFile(String uuidParte) {
-		//TODO: get stored zip file uuidParte.zip
-		return new byte[0];
+	public void deleteBlendFile(String gStorageBlendName) throws RemoteException {
+		try {
+			deleteObject(this.projectId, this.blendBucketName, gStorageBlendName);
+		} catch (IOException e) {
+			throw new RuntimeException(e);
+		}
+	}
+	@Override
+	public void storePartZipFile(String gStorageZipName, byte[] zipFile) {
+		try {
+			uploadObjectFromMemory(this.projectId, this.partZipBucketName, gStorageZipName, zipFile);
+		} catch (IOException e) {
+			throw new RuntimeException(e);
+		}
+	}
+	@Override
+	public byte[] getPartZipFile(String gStorageZipName) {
+		try {
+			return downloadObjectIntoMemory(this.projectId, this.partZipBucketName, gStorageZipName);
+		} catch (IOException e) {
+			throw new RuntimeException(e);
+		}
+	}
+	@Override
+	public void deletePartZipFile(String gStorageZipName) throws RemoteException {
+		try {
+			deleteObject(this.projectId, this.partZipBucketName, gStorageZipName);
+		} catch (IOException e) {
+			throw new RuntimeException(e);
+		}
+	}
+	@Override
+	public void storeFinalZipFile(String gStorageZipName, byte[] zipFile) {
+		try {
+			uploadObjectFromMemory(this.projectId, this.finalZipBucketName, gStorageZipName, zipFile);
+		} catch (IOException e) {
+			throw new RuntimeException(e);
+		}
 	}
 
 }

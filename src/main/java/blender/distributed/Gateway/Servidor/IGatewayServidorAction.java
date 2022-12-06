@@ -8,19 +8,20 @@ public interface IGatewayServidorAction extends Remote{
 	String helloGatewayFromServidor(int rmiPortForClientes, int rmiPortForWorkers) throws RemoteException;
 	void pingAliveFromServidor(String uuidServidor, int rmiPortForClientes, int rmiPortForWorkers) throws RemoteException;
 	String getWorker(String workerName) throws RemoteException;
-	String getAllWorkers() throws RemoteException;
 	void setWorker(String workerName, String recordWorkerJson) throws RemoteException;
-	void delWorker(String workerName) throws RemoteException;
 	String getTrabajo(String uuidTrabajo) throws RemoteException;
-	String getAllTrabajos() throws RemoteException;
 	void setTrabajo(String uuidTrabajo, String recordTrabajoJson) throws RemoteException;
 	void delTrabajo(String uuidTrabajo) throws RemoteException;
 	String getParte(String uuidParte) throws RemoteException;
 	List<String> getAllPartes() throws RemoteException;
 	void setParte(String uuidParte, String recordParteJson) throws RemoteException;
 	void delParte(String uuidParte) throws RemoteException;
-	String storeBlendFile(String blendName, byte[] blendFile) throws RemoteException;
-	String storeZipFile(String zipName, byte[] zipFile) throws RemoteException;
-	byte[] getZipFile(String uuidParte) throws RemoteException;
+	void storeBlendFile(String gStorageBlendName, byte[] blendFile) throws RemoteException;
+	byte[] getBlendFile(String gStorageBlendName) throws RemoteException;
+	void deleteBlendFile(String gStorageBlendName) throws RemoteException;
+	void storePartZipFile(String gStorageZipName, byte[] zipFile) throws RemoteException;
+	byte[] getPartZipFile(String gStorageZipName) throws RemoteException;
+	void deletePartZipFile(String gStorageZipName) throws RemoteException;
+	void storeFinalZipFile(String gStorageZipName, byte[] zipFile) throws RemoteException;
 }
 
