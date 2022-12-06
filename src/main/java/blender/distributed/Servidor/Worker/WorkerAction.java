@@ -71,7 +71,7 @@ public class WorkerAction implements IWorkerAction{
 				return null;
 			}
 			RParte recordParteUpdated = new RParte(recordParte.uuidTrabajo(), recordParte.uuid(),recordParte.startFrame(), recordParte.endFrame(), EStatus.IN_PROGRESS, null);
-			connectRandomGatewayRMIForServidor(this.listaGateways).setParte(recordParte.uuidTrabajo(), gson.toJson(recordParteUpdated));
+			connectRandomGatewayRMIForServidor(this.listaGateways).setParte(recordParte.uuid(), gson.toJson(recordParteUpdated));
 			RWorker recordWorkerUpdated = new RWorker(workerName, recordParte.uuid(), LocalTime.now().toString());
 			connectRandomGatewayRMIForServidor(this.listaGateways).setWorker(workerName, gson.toJson(recordWorkerUpdated));
 
@@ -98,7 +98,7 @@ public class WorkerAction implements IWorkerAction{
 				RTrabajo recordTrabajo = gson.fromJson(recordTrabajoJson, RTrabajoType);
 				boolean trabajoTerminado = true;
 				int i = 0;
-				while (trabajoTerminado || i <= recordTrabajo.listaPartes().size()){
+				while (trabajoTerminado && i < recordTrabajo.listaPartes().size()){
 					String parteTempJson = connectRandomGatewayRMIForServidor(this.listaGateways).getParte(recordTrabajo.listaPartes().get(i));
 					RParte parteTemp = gson.fromJson(parteTempJson, RParteType);
 					if(parteTemp.estado() == EStatus.TO_DO || parteTemp.estado() == EStatus.IN_PROGRESS) {
@@ -107,7 +107,6 @@ public class WorkerAction implements IWorkerAction{
 					i++;
 				}
 				if (trabajoTerminado) {
-
 					String workDir = this.singleServerDir + "/Works/";
 					String thisWorkDir = this.singleServerDir + "/Works/" + recordTrabajo.blendName() + "/";
 					DirectoryTools.checkOrCreateFolder(workDir);
@@ -131,7 +130,6 @@ public class WorkerAction implements IWorkerAction{
 						byte[] zipTrabajoWithRenderedImages = Files.readAllBytes(zipResult.toPath());
 						File workDirFile = new File(thisWorkDir);
 						DirectoryTools.deleteDirectory(workDirFile);
-
 						String urlZipFinal = connectRandomGatewayRMIForServidor(this.listaGateways).storeZipFile(uuidParte, zipTrabajoWithRenderedImages);
 						connectRandomGatewayRMIForServidor(this.listaGateways).setTrabajo(recordTrabajo.uuid(), gson.toJson(new RTrabajo(recordTrabajo.uuid(), recordTrabajo.blendName(), recordTrabajo.startFrame(), recordTrabajo.endFrame(), EStatus.DONE, recordTrabajo.listaPartes(), urlZipFinal)));
 					} catch (IOException e) {

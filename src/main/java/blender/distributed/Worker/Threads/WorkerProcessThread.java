@@ -38,9 +38,7 @@ public class WorkerProcessThread implements Runnable{
 			long endTime = System.currentTimeMillis()-startTime;
 			System.out.println("Time Elapsed: " + endTime + "ms");
 			this.latchSignal.countDown();
-		} catch (IOException e) {
-			e.printStackTrace();
-		} catch (InterruptedException e) {
+		} catch (IOException | InterruptedException e) {
 			e.printStackTrace();
 		}
 	}

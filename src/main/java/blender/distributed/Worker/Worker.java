@@ -92,13 +92,14 @@ public class Worker {
 		while (true) {
 			String recordTrabajoParteJson = null;
 			RTrabajoParte recordTrabajoParte = null;
-				while (recordTrabajoParte == null){
+				while (recordTrabajoParteJson == null){
 					try {
 						recordTrabajoParteJson = connectRandomGatewayRMI(this.listaGateways).getWorkToDo(this.workerName);
 						if(recordTrabajoParteJson == null) {
 							Thread.sleep(1000);
 						}
 					} catch (InterruptedException | RemoteException e) {
+						e.printStackTrace();
 					}
 				}
 				recordTrabajoParte = gson.fromJson(recordTrabajoParteJson, RTrabajoParteType);

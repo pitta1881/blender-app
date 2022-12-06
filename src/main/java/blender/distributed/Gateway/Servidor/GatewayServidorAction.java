@@ -20,15 +20,14 @@ import static java.rmi.server.RemoteServer.getClientHost;
 
 public class GatewayServidorAction implements IGatewayServidorAction {
 	Logger log = LoggerFactory.getLogger(GatewayServidorAction.class);
-	RedisClient redisPrivClient;
 	List<RServidor> listaServidores;
 	Gson gson = new Gson();
-	Type RServidorType = new TypeToken<RServidor>(){}.getType();
+	StatefulRedisConnection redisConnection;
 
 	public GatewayServidorAction(RedisClient redisPrivClient, List<RServidor> listaServidores) {
 		MDC.put("log.name", GatewayServidorAction.class.getSimpleName());
-		this.redisPrivClient = redisPrivClient;
 		this.listaServidores = listaServidores;
+		redisConnection = redisPrivClient.connect();
 	}
 	@Override
 	public String helloGatewayFromServidor(int rmiPortForClientes, int rmiPortForWorkers) {
@@ -38,11 +37,9 @@ public class GatewayServidorAction implements IGatewayServidorAction {
 			recordServidor = new RServidor(uuid, getClientHost(), rmiPortForClientes, rmiPortForWorkers, LocalTime.now().toString());
 		} catch (ServerNotActiveException e) {
 			throw new RuntimeException(e);
-		}
-		StatefulRedisConnection redisConnection = this.redisPrivClient.connect();
+		}		
 		redisConnection.sync().hset("listaServidores", uuid ,gson.toJson(recordServidor));
 		log.info("Registrado nuevo servidor: " + recordServidor);
-		redisConnection.close();
 		return uuid;
 	}
 	@Override
@@ -53,90 +50,64 @@ public class GatewayServidorAction implements IGatewayServidorAction {
 		} catch (ServerNotActiveException e) {
 			throw new RuntimeException(e);
 		}
-		String json = gson.toJson(recordServidor);
-		StatefulRedisConnection redisConnection = this.redisPrivClient.connect();
+		String json = gson.toJson(recordServidor);		
 		redisConnection.sync().hset("listaServidores", uuidServidor ,json);
-		redisConnection.close();
 	}
 	@Override
-	public String getWorker(String workerName) {
-		StatefulRedisConnection redisConnection = this.redisPrivClient.connect();
+	public String getWorker(String workerName) {		
 		String workerRecordJson = String.valueOf(redisConnection.sync().hget("listaWorkers", workerName));
-		redisConnection.close();
 		return workerRecordJson;
 	}
 	@Override
 	public String getAllWorkers() throws RemoteException {
-		StatefulRedisConnection redisConnection = this.redisPrivClient.connect();
 		String listaWorkersJson = String.valueOf(redisConnection.sync().hvals("listaWorkers"));
-		redisConnection.close();
 		return listaWorkersJson;
 	}
 
 	@Override
 	public void setWorker(String workerName, String recordWorkerJson) throws RemoteException {
-		StatefulRedisConnection redisConnection = this.redisPrivClient.connect();
 		redisConnection.sync().hset("listaWorkers", workerName, recordWorkerJson);
-		redisConnection.close();
 	}
 
 	@Override
 	public void delWorker(String workerName) {
-		StatefulRedisConnection redisConnection = this.redisPrivClient.connect();
 		redisConnection.sync().hdel("listaWorkers", workerName);
-		redisConnection.close();
 	}
 	@Override
 	public String getTrabajo(String uuidTrabajo) {
-		StatefulRedisConnection redisConnection = this.redisPrivClient.connect();
 		String trabajoRecordJson = String.valueOf(redisConnection.sync().hget("listaTrabajos", uuidTrabajo));
-		redisConnection.close();
 		return trabajoRecordJson;
 	}
 	@Override
 	public String getAllTrabajos() {
-		StatefulRedisConnection redisConnection = this.redisPrivClient.connect();
 		String listaTrabajosJson = String.valueOf(redisConnection.sync().hvals("listaTrabajos"));
-		redisConnection.close();
 		return listaTrabajosJson;
 	}
 	@Override
 	public void setTrabajo(String uuidTrabajo, String recordTrabajoJson) {
-		StatefulRedisConnection redisConnection = this.redisPrivClient.connect();
 		redisConnection.sync().hset("listaTrabajos", uuidTrabajo, recordTrabajoJson);
-		redisConnection.close();
 	}
 	@Override
 	public void delTrabajo(String uuidTrabajo) {
-		StatefulRedisConnection redisConnection = this.redisPrivClient.connect();
 		redisConnection.sync().hdel("listaTrabajos", uuidTrabajo);
-		redisConnection.close();
 	}
 	@Override
 	public String getParte(String uuidParte) {
-		StatefulRedisConnection redisConnection = this.redisPrivClient.connect();
 		String parteRecordJson = String.valueOf(redisConnection.sync().hget("listaPartes", uuidParte));
-		redisConnection.close();
 		return parteRecordJson;
 	}
 	@Override
 	public List<String> getAllPartes() {
-		StatefulRedisConnection redisConnection = this.redisPrivClient.connect();
 		List<String> listaPartesJson = redisConnection.sync().hvals("listaPartes");
-		redisConnection.close();
 		return listaPartesJson;
 	}
 	@Override
 	public void setParte(String uuidParte, String recordParteJson) {
-		StatefulRedisConnection redisConnection = this.redisPrivClient.connect();
 		redisConnection.sync().hset("listaPartes", uuidParte, recordParteJson);
-		redisConnection.close();
 	}
 	@Override
 	public void delParte(String uuidParte) {
-		StatefulRedisConnection redisConnection = this.redisPrivClient.connect();
 		redisConnection.sync().hdel("listaPartes", uuidParte);
-		redisConnection.close();
 	}
 	@Override
 	public String storeBlendFile(String blendName, byte[] blendFile) {
