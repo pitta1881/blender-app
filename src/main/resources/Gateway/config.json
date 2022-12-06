@@ -6,11 +6,5 @@
 		"initialPortForClientes":"9101",
 		"initialPortForWorkers":"9201",
 		"initialPortForServidores":"9301"
-	},
-	"redis_priv":{
-		"uri": "redis://RedisPrivate:Th3_f0rce_m4y_b3_w1th_y0u@redis-16935.c1.us-east1-2.gce.cloud.redislabs.com:16935"
-	},
-	"redis_pub":{
-		"uri": "redis://RedisPublicWrite:Publicwrite123!@redis-14060.c1.us-east1-2.gce.cloud.redislabs.com:14060"
 	}
 }

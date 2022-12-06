@@ -30,6 +30,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import io.github.cdimascio.dotenv.Dotenv;
 
 public class Gateway {
 	//General settings
@@ -53,6 +54,7 @@ public class Gateway {
 	RedisClient redisPrivClient;
 	List<RServidor> listaServidores = new ArrayList<>();
 	boolean flushDb = false;
+	Dotenv dotenv = Dotenv.load();
 	Gson gson = new Gson();
 	Type RListaServidorType = new TypeToken<List<RServidor>>(){}.getType();
 	public Gateway(boolean flushDb) {
@@ -126,11 +128,9 @@ public class Gateway {
 			this.rmiPortForWorkers = Integer.valueOf(rmi.get("initialPortForWorkers").toString());
 			this.rmiPortForServidores = Integer.valueOf(rmi.get("initialPortForServidores").toString());
 
-			Map redisPriv = (Map) config.get("redis_priv");
-			this.redisPrivURI = redisPriv.get("uri").toString();
+			this.redisPrivURI = "redis://"+dotenv.get("REDIS_PRIVATE_USER")+":"+dotenv.get("REDIS_PRIVATE_PASS")+"@"+dotenv.get("REDIS_PRIVATE_IP")+":"+dotenv.get("REDIS_PRIVATE_PORT");
 
-			Map redisPub = (Map) config.get("redis_pub");
-			this.redisPubWriteURI = redisPub.get("uri").toString();
+			this.redisPubWriteURI = "redis://"+dotenv.get("REDIS_PUBLIC_WRITE_USER")+":"+dotenv.get("REDIS_PUBLIC_WRITE_PASS")+"@"+dotenv.get("REDIS_PUBLIC_IP")+":"+dotenv.get("REDIS_PUBLIC_PORT");
 
 		} catch (IOException e) {
 			throw new RuntimeException(e);
@@ -152,8 +152,8 @@ public class Gateway {
 
 	private void runRedisPrivClient() {
 		this.redisPrivClient = RedisClient.create(this.redisPrivURI);
-		log.info("Conectado a Redis Privado exitosamente.");
 		StatefulRedisConnection redisConnection = this.redisPrivClient.connect();
+		log.info("Conectado a Redis Privado exitosamente.");
 		RedisCommands commands = redisConnection.sync();
 		this.listaServidores = gson.fromJson(String.valueOf(commands.hvals("listaServidores")), RListaServidorType);
 		if(this.flushDb) commands.flushdb();

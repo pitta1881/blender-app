@@ -9,6 +9,7 @@ import blender.distributed.Worker.Threads.SendPingAliveThread;
 import blender.distributed.Worker.Threads.WorkerProcessThread;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
+import io.github.cdimascio.dotenv.Dotenv;
 import io.lettuce.core.RedisClient;
 import io.lettuce.core.api.StatefulRedisConnection;
 import io.lettuce.core.api.sync.RedisCommands;
@@ -43,7 +44,7 @@ public class Worker {
 	String blenderPortable;
 	String appDir = System.getProperty("user.dir") + "/app/";
 	String workerDir = appDir + "Worker/";
-	String workerName = "worker"+System.currentTimeMillis(); //"worker1663802677984"; //"worker1663802677985"; //"worker"+System.currentTimeMillis();
+	String workerName = "worker"+System.currentTimeMillis(); //"worker1670282810869"; //"worker1663802677985"; //"worker"+System.currentTimeMillis();
 	String singleWorkerDir = workerDir + "/" + workerName + "/";
 	String urlBlenderPortable;
 	String blenderExe;
@@ -59,6 +60,7 @@ public class Worker {
 	Gson gson = new Gson();
 	Type RListaGatewayType = new TypeToken<List<RGateway>>(){}.getType();
 	Type RTrabajoParteType = new TypeToken<RTrabajoParte>(){}.getType();
+	Dotenv dotenv = Dotenv.load();
 
 	public Worker () {
 		MDC.put("log.name", this.getClass().getSimpleName());
@@ -300,8 +302,7 @@ public class Worker {
 			InputStream stream = Gateway.class.getClassLoader().getResourceAsStream("Worker/config.json");
 			config = gson.fromJson(IOUtils.toString(stream, "UTF-8"), Map.class);
 
-			Map redisPub = (Map) config.get("redis_pub");
-			this.redisPubURI = redisPub.get("uri").toString();
+			this.redisPubURI = "redis://"+dotenv.get("REDIS_PUBLIC_USER")+":"+dotenv.get("REDIS_PUBLIC_PASS")+"@"+dotenv.get("REDIS_PUBLIC_IP")+":"+dotenv.get("REDIS_PUBLIC_PORT");
 
 			Map paths = (Map) config.get("paths");
 			this.blenderExe = this.singleWorkerDir + paths.get("blenderExe");

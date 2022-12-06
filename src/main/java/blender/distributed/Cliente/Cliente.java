@@ -8,6 +8,7 @@ import blender.distributed.SharedTools.DirectoryTools;
 import blender.distributed.SharedTools.RefreshListaGatewaysThread;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
+import io.github.cdimascio.dotenv.Dotenv;
 import io.lettuce.core.RedisClient;
 import io.lettuce.core.api.StatefulRedisConnection;
 import io.lettuce.core.api.sync.RedisCommands;
@@ -39,7 +40,7 @@ public class Cliente{
 	private String redisPubURI;
 	Gson gson = new Gson();
 	Type RTrabajoType = new TypeToken<RTrabajo>(){}.getType();
-
+	Dotenv dotenv = Dotenv.load();
 
 	public Cliente() {
 		readConfigFile();
@@ -104,8 +105,7 @@ public class Cliente{
 			InputStream stream = Gateway.class.getClassLoader().getResourceAsStream("Cliente/config.json");
 			config = gson.fromJson(IOUtils.toString(stream, "UTF-8"), Map.class);
 
-			Map redisPub = (Map) config.get("redis_pub");
-			this.redisPubURI = redisPub.get("uri").toString();
+			this.redisPubURI = "redis://"+dotenv.get("REDIS_PUBLIC_USER")+":"+dotenv.get("REDIS_PUBLIC_PASS")+"@"+dotenv.get("REDIS_PUBLIC_IP")+":"+dotenv.get("REDIS_PUBLIC_PORT");
 
 			Map paths = (Map) config.get("paths");
 			this.myRenderedImages = this.clienteDirectory + paths.get("renderedImages");

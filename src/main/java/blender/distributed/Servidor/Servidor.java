@@ -11,6 +11,7 @@ import blender.distributed.SharedTools.DirectoryTools;
 import blender.distributed.SharedTools.RefreshListaGatewaysThread;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
+import io.github.cdimascio.dotenv.Dotenv;
 import io.lettuce.core.RedisClient;
 import io.lettuce.core.api.StatefulRedisConnection;
 import io.lettuce.core.api.sync.RedisCommands;
@@ -50,6 +51,7 @@ public class Servidor {
 	List<RGateway> listaGateways;
 	String uuid;
 	RedisClient redisPubClient;
+	Dotenv dotenv = Dotenv.load();
 
 
 	public Servidor() {
@@ -109,8 +111,7 @@ public class Servidor {
 			this.rmiPortForClientes = Integer.valueOf(rmi.get("initialPortForClientes").toString());
 			this.rmiPortForWorkers = Integer.valueOf(rmi.get("initialPortForWorkers").toString());
 
-			Map redisPub = (Map) config.get("redis_pub");
-			this.redisPubURI = redisPub.get("uri").toString();
+			this.redisPubURI = "redis://"+dotenv.get("REDIS_PUBLIC_USER")+":"+dotenv.get("REDIS_PUBLIC_PASS")+"@"+dotenv.get("REDIS_PUBLIC_IP")+":"+dotenv.get("REDIS_PUBLIC_PORT");
 
 		} catch (IOException e) {
 			log.error("Error Archivo Config!");
