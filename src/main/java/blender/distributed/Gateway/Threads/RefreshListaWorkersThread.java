@@ -1,5 +1,7 @@
 package blender.distributed.Gateway.Threads;
 
+import blender.distributed.Enums.EStatus;
+import blender.distributed.Records.RParte;
 import blender.distributed.Records.RWorker;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
@@ -37,7 +39,15 @@ public class RefreshListaWorkersThread implements Runnable {
             newListaWorkers = gson.fromJson(String.valueOf(commands.hvals("listaWorkers")), new TypeToken<List<RWorker>>() {
             }.getType());
             listaWorkersToDelete = newListaWorkers.stream().filter(worker -> Duration.between(LocalTime.parse(worker.lastPing()), LocalTime.now()).getSeconds() > 10).collect(Collectors.toList());
-            listaWorkersToDelete.stream().map(workerToDelete -> workerToDelete.workerName()).forEach(worker -> {
+            listaWorkersToDelete.stream().map(workerToDelete -> {
+                if(workerToDelete.uuidParte() != null) {
+                    RParte parteAsociada = gson.fromJson(String.valueOf(commands.hget("listaPartes", workerToDelete.uuidParte())), new TypeToken<RParte>() {
+                    }.getType());
+                    RParte parteAsociadaUpdated = new RParte(parteAsociada.uuidTrabajo(), parteAsociada.uuid(), parteAsociada.startFrame(), parteAsociada.endFrame(), EStatus.TO_DO, null);
+                    commands.hset("listaPartes", parteAsociada.uuid(), gson.toJson(parteAsociadaUpdated));
+                }
+                return workerToDelete.workerName();
+            }).forEach(worker -> {
                 commands.hdel("listaWorkers", worker);
                 log.info("Worker " + worker + " eliminado por timeout. ");
             });

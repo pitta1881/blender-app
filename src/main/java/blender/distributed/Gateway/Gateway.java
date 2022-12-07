@@ -160,6 +160,6 @@ public class Gateway {
 	}
 
 	public static void main(String[] args) {
-		new Gateway(true);
+		new Gateway(false);
 	}
 }
