@@ -9,5 +9,8 @@
         <module name="blender-app" />
       </profile>
     </annotationProcessing>
+    <bytecodeTargetLevel>
+      <module name="Cliente" target="16" />
+    </bytecodeTargetLevel>
   </component>
 </project>
