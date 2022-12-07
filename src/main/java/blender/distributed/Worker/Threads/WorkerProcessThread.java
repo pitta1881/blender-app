@@ -1,11 +1,15 @@
 package blender.distributed.Worker.Threads;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.util.concurrent.CountDownLatch;
 
 public class WorkerProcessThread implements Runnable{
+	static Logger log = LoggerFactory.getLogger(WorkerProcessThread.class);
 	private String cmd;
 	private final CountDownLatch latchSignal;
 
@@ -39,7 +43,7 @@ public class WorkerProcessThread implements Runnable{
 			System.out.println("Time Elapsed: " + endTime + "ms");
 			this.latchSignal.countDown();
 		} catch (IOException | InterruptedException e) {
-			e.printStackTrace();
+			log.error("Error: " + e.getMessage());
 		}
 	}
 

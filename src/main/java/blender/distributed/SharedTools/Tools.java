@@ -1,12 +1,16 @@
 package blender.distributed.SharedTools;
 
 import blender.distributed.Enums.ENodo;
-import blender.distributed.Worker.Worker;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.net.URL;
+
 public class Tools {
-    static Logger log = LoggerFactory.getLogger(Worker.class);
+    static Logger log = LoggerFactory.getLogger(Tools.class);
 
     public static void manageGatewayServidorFall(ENodo nodo, String ip, int port){
         log.error("Error al conectar con el " + nodo + " " + ip + ":" + port);
@@ -14,7 +18,21 @@ public class Tools {
             log.info("Reintentando con el próximo " + nodo + " ...");
             Thread.sleep(2000);
         } catch (InterruptedException e) {
-            throw new RuntimeException(e);
+            log.error("Error: " + e.getMessage());
         }
+    }
+
+    public static String getPublicIp() {
+        URL whatismyip = null;
+        String ip = null;
+        try {
+            whatismyip = new URL("http://checkip.amazonaws.com");
+            BufferedReader in = new BufferedReader(new InputStreamReader(
+                    whatismyip.openStream()));
+            ip = in.readLine();
+        } catch (IOException e) {
+            log.error("Error: " + e.getMessage());
+        }
+        return ip;
     }
 }

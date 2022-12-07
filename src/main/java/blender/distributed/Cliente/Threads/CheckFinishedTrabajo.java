@@ -3,17 +3,24 @@ package blender.distributed.Cliente.Threads;
 import blender.distributed.Enums.EStatus;
 import blender.distributed.Records.RGateway;
 import blender.distributed.Records.RTrabajo;
-import blender.distributed.Servidor.Cliente.ClienteAction;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
 import io.github.cdimascio.dotenv.Dotenv;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.swing.*;
-import java.awt.*;
+
+import javax.swing.JFrame;
+import javax.swing.JLabel;
+import javax.swing.Box;
+import javax.swing.BoxLayout;
+import java.awt.Component;
+import java.awt.Color;
+import java.awt.Cursor;
+import java.awt.Desktop;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
+import java.awt.HeadlessException;
 import java.io.IOException;
 import java.lang.reflect.Type;
 import java.net.URI;
@@ -26,7 +33,7 @@ import java.util.List;
 import static blender.distributed.Cliente.Tools.connectRandomGatewayRMI;
 
 public class CheckFinishedTrabajo implements Runnable{
-    Logger log = LoggerFactory.getLogger(ClienteAction.class);
+    Logger log = LoggerFactory.getLogger(CheckFinishedTrabajo.class);
     List<RGateway> listaGateways;
     RTrabajo recordTrabajo;
     Gson gson = new Gson();
@@ -55,7 +62,7 @@ public class CheckFinishedTrabajo implements Runnable{
                 }
                 Thread.sleep(1000);
             } catch (RemoteException | InterruptedException e) {
-                throw new RuntimeException(e);
+                log.error("Error: " + e.getMessage());
             }
         }
         LocalTime finishTime = LocalTime.now();

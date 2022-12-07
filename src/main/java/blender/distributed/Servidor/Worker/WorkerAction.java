@@ -133,7 +133,7 @@ public class WorkerAction implements IWorkerAction{
 							File zipResult = new File(thisWorkDir + recordTrabajo.uuid() + ".zip");
 							zipTrabajoWithRenderedImages = Files.readAllBytes(zipResult.toPath());
 						} catch (IOException e) {
-							throw new RuntimeException(e);
+							log.error("Error: " + e.getMessage());
 						}
 					}
 					connectRandomGatewayRMIForServidor(this.listaGateways).storeFinalZipFile(recordTrabajo.uuid()+".zip", zipTrabajoWithRenderedImages);
@@ -144,7 +144,7 @@ public class WorkerAction implements IWorkerAction{
 							connectRandomGatewayRMIForServidor(this.listaGateways).deletePartZipFile(parte+".zip");
 							connectRandomGatewayRMIForServidor(this.listaGateways).delParte(parte);
 						} catch (RemoteException e) {
-							throw new RuntimeException(e);
+							log.error("Error: " + e.getMessage());
 						}
 					});
 					File workDirFile = new File(thisWorkDir);

@@ -16,7 +16,7 @@ import java.util.Random;
 import static blender.distributed.SharedTools.Tools.manageGatewayServidorFall;
 
 public class Tools {
-    static Logger log = LoggerFactory.getLogger(Worker.class);
+    static Logger log = LoggerFactory.getLogger(Tools.class);
 
     public static IWorkerAction connectRandomGatewayRMI(List<RGateway> listaGateways) {
         IWorkerAction stubGateway = null;

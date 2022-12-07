@@ -1,12 +1,11 @@
 package blender.distributed.SharedTools;
 
-import blender.distributed.Worker.Worker;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.File;
 public class DirectoryTools {
-	static Logger log = LoggerFactory.getLogger(Worker.class);
+	static Logger log = LoggerFactory.getLogger(DirectoryTools.class);
 
 	public static long getFolderSize(File folder) {
 	    long length = 0;

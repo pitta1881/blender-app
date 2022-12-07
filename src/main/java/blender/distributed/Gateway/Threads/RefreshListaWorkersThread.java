@@ -1,6 +1,5 @@
 package blender.distributed.Gateway.Threads;
 
-import blender.distributed.Gateway.Gateway;
 import blender.distributed.Records.RWorker;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
@@ -16,7 +15,7 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 public class RefreshListaWorkersThread implements Runnable {
-    Logger log = LoggerFactory.getLogger(Gateway.class);
+    Logger log = LoggerFactory.getLogger(RefreshListaWorkersThread.class);
     RedisClient redisPrivClient;
     public RefreshListaWorkersThread(RedisClient redisPrivClient) {
         this.redisPrivClient = redisPrivClient;
@@ -33,7 +32,7 @@ public class RefreshListaWorkersThread implements Runnable {
             try {
                 Thread.sleep(10000);
             } catch (InterruptedException e) {
-                throw new RuntimeException(e);
+                log.error("Error: " + e.getMessage());
             }
             newListaWorkers = gson.fromJson(String.valueOf(commands.hvals("listaWorkers")), new TypeToken<List<RWorker>>() {
             }.getType());

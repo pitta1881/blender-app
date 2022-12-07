@@ -6,11 +6,14 @@ import com.google.gson.reflect.TypeToken;
 import io.lettuce.core.RedisClient;
 import io.lettuce.core.api.StatefulRedisConnection;
 import io.lettuce.core.api.sync.RedisCommands;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.lang.reflect.Type;
 import java.util.List;
 
 public class RefreshListaGatewaysThread implements Runnable{
+    static Logger log = LoggerFactory.getLogger(RefreshListaGatewaysThread.class);
     List<RGateway> listaGateways;
     RedisClient redisPubClient;
     Type RListaGatewayType = new TypeToken<List<RGateway>>(){}.getType();
@@ -29,7 +32,7 @@ public class RefreshListaGatewaysThread implements Runnable{
             try {
                 Thread.sleep(10000);
             } catch (InterruptedException e) {
-                throw new RuntimeException(e);
+                log.error("Error: " + e.getMessage());
             }
             synchronized (this.listaGateways) {
                 newListaGateways = gson.fromJson(String.valueOf(commands.hvals("listaGateways")), RListaGatewayType);

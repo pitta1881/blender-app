@@ -30,6 +30,7 @@ import java.util.List;
 import java.util.Map;
 
 import static blender.distributed.Gateway.Tools.connectRandomGatewayRMIForServidor;
+import static blender.distributed.SharedTools.Tools.getPublicIp;
 
 public class Servidor {
 	//General settings
@@ -37,6 +38,7 @@ public class Servidor {
 	String appDir = System.getProperty("user.dir") + "/app/";
 	String serverDirectory = appDir + "Servidor/";
 	String singleServerDir;
+	private String myPublicIp = getPublicIp();
 
 	//RMI
 	private int rmiPortForClientes;
@@ -65,7 +67,7 @@ public class Servidor {
 	}
 
 	private void createThreadSendPingAlive() {
-		SendPingAliveThread aliveT = new SendPingAliveThread(this.uuid, this.listaGateways, this.rmiPortForClientes, this.rmiPortForWorkers);
+		SendPingAliveThread aliveT = new SendPingAliveThread(this.uuid, this.myPublicIp, this.listaGateways, this.rmiPortForClientes, this.rmiPortForWorkers);
 		Thread threadAliveT = new Thread(aliveT);
 		threadAliveT.start();
 	}
@@ -143,13 +145,12 @@ public class Servidor {
 
 	private void helloGateway() {
 		try {
-			String uuid = connectRandomGatewayRMIForServidor(this.listaGateways).helloGatewayFromServidor(this.rmiPortForClientes, this.rmiPortForWorkers);
+			String uuid = connectRandomGatewayRMIForServidor(this.listaGateways).helloGatewayFromServidor(this.myPublicIp, this.rmiPortForClientes, this.rmiPortForWorkers);
 			if(!uuid.isEmpty()){
 				log.info("Conectado a un Gateway. UUID Asignado: " + uuid);
 				this.uuid = uuid;
 			}
 		} catch (RemoteException | NullPointerException e) {
-			e.printStackTrace();
 			try {
 				Thread.sleep(1000);
 			} catch (InterruptedException ex) {

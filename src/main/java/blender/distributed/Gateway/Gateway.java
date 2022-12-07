@@ -20,7 +20,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
 
-import java.io.*;
+import java.io.IOException;
+import java.io.InputStream;
 import java.lang.reflect.Type;
 import java.rmi.RemoteException;
 import java.rmi.registry.LocateRegistry;
@@ -32,11 +33,12 @@ import java.util.Map;
 import java.util.UUID;
 import io.github.cdimascio.dotenv.Dotenv;
 
+import static blender.distributed.SharedTools.Tools.getPublicIp;
+
 public class Gateway {
 	//General settings
 	Logger log = LoggerFactory.getLogger(this.getClass());
-	private String myIp;
-
+	private String myPublicIp = getPublicIp();
 	//RMI
 	private int rmiPortForClientes;
 	private int rmiPortForWorkers;
@@ -120,9 +122,6 @@ public class Gateway {
 			InputStream stream = this.getClass().getClassLoader().getResourceAsStream("Gateway/config.json");
 			config = gson.fromJson(IOUtils.toString(stream, "UTF-8"), Map.class);
 
-			Map server = (Map) config.get("gateway");
-			this.myIp = server.get("ip").toString();
-
 			Map rmi = (Map) config.get("rmi");
 			this.rmiPortForClientes = Integer.valueOf(rmi.get("initialPortForClientes").toString());
 			this.rmiPortForWorkers = Integer.valueOf(rmi.get("initialPortForWorkers").toString());
@@ -133,7 +132,7 @@ public class Gateway {
 			this.redisPubWriteURI = "redis://"+dotenv.get("REDIS_PUBLIC_WRITE_USER")+":"+dotenv.get("REDIS_PUBLIC_WRITE_PASS")+"@"+dotenv.get("REDIS_PUBLIC_IP")+":"+dotenv.get("REDIS_PUBLIC_PORT");
 
 		} catch (IOException e) {
-			throw new RuntimeException(e);
+			log.error("Error: " + e.getMessage());
 		}
 	}
 
@@ -144,7 +143,7 @@ public class Gateway {
 		RedisCommands commands = redisConnection.sync();
 		if(flushDb) commands.flushdb();
 		String uuid = UUID.randomUUID().toString();
-		commands.hset("listaGateways", uuid, gson.toJson(new RGateway(uuid, this.myIp, this.rmiPortForClientes, this.rmiPortForWorkers, this.rmiPortForServidores)));
+		commands.hset("listaGateways", uuid, gson.toJson(new RGateway(uuid, this.myPublicIp, this.rmiPortForClientes, this.rmiPortForWorkers, this.rmiPortForServidores)));
 		log.info("Iniciando Gateway -> " + uuid);
 		redisConnection.close();
 		redisPubClient.shutdown();

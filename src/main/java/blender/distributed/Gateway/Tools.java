@@ -3,7 +3,6 @@ package blender.distributed.Gateway;
 import blender.distributed.Enums.ENodo;
 import blender.distributed.Gateway.Servidor.IGatewayServidorAction;
 import blender.distributed.Records.RGateway;
-import blender.distributed.Worker.Worker;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -17,7 +16,7 @@ import java.util.Random;
 import static blender.distributed.SharedTools.Tools.manageGatewayServidorFall;
 
 public class Tools {
-    static Logger log = LoggerFactory.getLogger(Worker.class);
+    static Logger log = LoggerFactory.getLogger(Tools.class);
 
     public static IGatewayServidorAction connectRandomGatewayRMIForServidor(List<RGateway> listaGateways) {
         IGatewayServidorAction stubGateway = null;

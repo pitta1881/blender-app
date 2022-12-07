@@ -2,7 +2,6 @@ package blender.distributed.Gateway.Servidor;
 
 import blender.distributed.Enums.ENodo;
 import blender.distributed.Records.RServidor;
-import blender.distributed.Servidor.Cliente.ClienteAction;
 import blender.distributed.Servidor.Cliente.IClienteAction;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -18,7 +17,7 @@ import java.util.Random;
 import static blender.distributed.SharedTools.Tools.manageGatewayServidorFall;
 
 public class GatewayClienteAction implements IClienteAction {
-	Logger log = LoggerFactory.getLogger(ClienteAction.class);
+	Logger log = LoggerFactory.getLogger(GatewayClienteAction.class);
 	List<RServidor> listaServidores;
 	public GatewayClienteAction(List<RServidor> listaServidores) {
 		MDC.put("log.name", GatewayClienteAction.class.getSimpleName());
@@ -30,7 +29,6 @@ public class GatewayClienteAction implements IClienteAction {
 		try {
 			return connectRandomServidorRMIForCliente().renderRequest(blendFile, blendName, startFrame, endFrame);
 		} catch (NullPointerException | RemoteException e) {
-			e.printStackTrace();
 			return renderRequest(blendFile, blendName, startFrame, endFrame);
 		}
 	}

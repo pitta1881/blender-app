@@ -5,8 +5,8 @@ import java.rmi.RemoteException;
 import java.util.List;
 
 public interface IGatewayServidorAction extends Remote{
-	String helloGatewayFromServidor(int rmiPortForClientes, int rmiPortForWorkers) throws RemoteException;
-	void pingAliveFromServidor(String uuidServidor, int rmiPortForClientes, int rmiPortForWorkers) throws RemoteException;
+	String helloGatewayFromServidor(String publicIp, int rmiPortForClientes, int rmiPortForWorkers) throws RemoteException;
+	void pingAliveFromServidor(String uuidServidor, String publicIp, int rmiPortForClientes, int rmiPortForWorkers) throws RemoteException;
 	String getWorker(String workerName) throws RemoteException;
 	void setWorker(String workerName, String recordWorkerJson) throws RemoteException;
 	String getTrabajo(String uuidTrabajo) throws RemoteException;

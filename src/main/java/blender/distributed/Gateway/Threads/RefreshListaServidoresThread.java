@@ -1,7 +1,6 @@
 package blender.distributed.Gateway.Threads;
 
 import blender.distributed.Records.RServidor;
-import blender.distributed.Servidor.Servidor;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
 import io.lettuce.core.RedisClient;
@@ -18,7 +17,7 @@ import java.util.stream.Collectors;
 
 
 public class RefreshListaServidoresThread implements Runnable {
-    Logger log = LoggerFactory.getLogger(Servidor.class);
+    Logger log = LoggerFactory.getLogger(RefreshListaServidoresThread.class);
     List<RServidor> listaServidores;
     RedisClient redisPrivClient;
     Type RListaServidorType = new TypeToken<List<RServidor>>(){}.getType();
@@ -39,7 +38,7 @@ public class RefreshListaServidoresThread implements Runnable {
             try {
                 Thread.sleep(10000);
             } catch (InterruptedException e) {
-                throw new RuntimeException(e);
+                log.error("Error: " + e.getMessage());
             }
             synchronized (this.listaServidores) {
                 newListaServidores = gson.fromJson(String.valueOf(commands.hvals("listaServidores")), RListaServidorType);

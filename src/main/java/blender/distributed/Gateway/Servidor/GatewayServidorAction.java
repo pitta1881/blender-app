@@ -11,7 +11,6 @@ import org.slf4j.MDC;
 
 import java.io.IOException;
 import java.rmi.RemoteException;
-import java.rmi.server.ServerNotActiveException;
 import java.time.LocalTime;
 import java.util.List;
 import java.util.UUID;
@@ -19,7 +18,6 @@ import java.util.UUID;
 import static blender.distributed.Gateway.GStorage.DeleteObject.deleteObject;
 import static blender.distributed.Gateway.GStorage.DownloadObjectIntoMemory.downloadObjectIntoMemory;
 import static blender.distributed.Gateway.GStorage.UploadObjectFromMemory.uploadObjectFromMemory;
-import static java.rmi.server.RemoteServer.getClientHost;
 
 public class GatewayServidorAction implements IGatewayServidorAction {
 	Logger log = LoggerFactory.getLogger(GatewayServidorAction.class);
@@ -38,26 +36,16 @@ public class GatewayServidorAction implements IGatewayServidorAction {
 		this.redisConnection = redisPrivClient.connect();
 	}
 	@Override
-	public String helloGatewayFromServidor(int rmiPortForClientes, int rmiPortForWorkers) {
+	public String helloGatewayFromServidor(String publicIp, int rmiPortForClientes, int rmiPortForWorkers) {
 		String uuid = UUID.randomUUID().toString();
-		RServidor recordServidor = null;
-		try {
-			recordServidor = new RServidor(uuid, getClientHost(), rmiPortForClientes, rmiPortForWorkers, LocalTime.now().toString());
-		} catch (ServerNotActiveException e) {
-			throw new RuntimeException(e);
-		}		
+		RServidor recordServidor = new RServidor(uuid, publicIp, rmiPortForClientes, rmiPortForWorkers, LocalTime.now().toString());
 		redisConnection.sync().hset("listaServidores", uuid ,gson.toJson(recordServidor));
 		log.info("Registrado nuevo servidor: " + recordServidor);
 		return uuid;
 	}
 	@Override
-	public void pingAliveFromServidor(String uuidServidor, int rmiPortForClientes, int rmiPortForWorkers) {
-		RServidor recordServidor = null;
-		try {
-			recordServidor = new RServidor(uuidServidor, getClientHost(),rmiPortForClientes, rmiPortForWorkers, LocalTime.now().toString());
-		} catch (ServerNotActiveException e) {
-			throw new RuntimeException(e);
-		}
+	public void pingAliveFromServidor(String uuidServidor, String publicIp, int rmiPortForClientes, int rmiPortForWorkers) {
+		RServidor recordServidor = new RServidor(uuidServidor, publicIp,rmiPortForClientes, rmiPortForWorkers, LocalTime.now().toString());
 		String json = gson.toJson(recordServidor);		
 		redisConnection.sync().hset("listaServidores", uuidServidor ,json);
 	}
@@ -104,7 +92,7 @@ public class GatewayServidorAction implements IGatewayServidorAction {
 		try {
 			uploadObjectFromMemory(this.projectId, this.blendBucketName, gStorageBlendName, blendFile);
 		} catch (IOException e) {
-			throw new RuntimeException(e);
+			log.error("Error: " + e.getMessage());
 		}
 	}
 	@Override
@@ -144,7 +132,7 @@ public class GatewayServidorAction implements IGatewayServidorAction {
 		try {
 			deleteObject(this.projectId, this.partZipBucketName, gStorageZipName);
 		} catch (IOException e) {
-			throw new RuntimeException(e);
+			log.error("Error: " + e.getMessage());
 		}
 	}
 	@Override
@@ -152,7 +140,7 @@ public class GatewayServidorAction implements IGatewayServidorAction {
 		try {
 			uploadObjectFromMemory(this.projectId, this.finalZipBucketName, gStorageZipName, zipFile);
 		} catch (IOException e) {
-			throw new RuntimeException(e);
+			log.error("Error: " + e.getMessage());
 		}
 	}
 

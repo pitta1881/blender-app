@@ -40,7 +40,6 @@ public class ClienteAction implements IClienteAction {
 			log.info("Registrando nuevo trabajo: " + recordTrabajo);
 			return json;
 		} catch (RemoteException | NullPointerException e) {
-			e.printStackTrace();
 			return renderRequest(blendFile, blendName, startFrame, endFrame);
 		}
 	}
@@ -70,7 +69,7 @@ public class ClienteAction implements IClienteAction {
 			try {
 				connectRandomGatewayRMIForServidor(this.listaGateways).setParte(uuid, gson.toJson(recordParte));
 			} catch (RemoteException e) {
-				throw new RuntimeException(e);
+				log.error("Error: " + e.getMessage());
 			}
 			partStartFrame = partEndFrame + 1;
 			partEndFrame += this.frameDivision;

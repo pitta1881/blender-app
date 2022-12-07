@@ -21,7 +21,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
 
-import java.io.*;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
 import java.lang.reflect.Type;
 import java.net.Inet4Address;
 import java.net.URL;
@@ -98,7 +101,7 @@ public class Worker {
 						Thread.sleep(1000);
 					}
 				} catch (InterruptedException | RemoteException e) {
-					e.printStackTrace();
+					log.error("Error: " + e.getMessage());
 				}
 			}
 			recordTrabajoParte = gson.fromJson(recordTrabajoParteJson, RTrabajoParteType);
@@ -113,7 +116,7 @@ public class Worker {
 			try {
 				blendFileBytes = connectRandomGatewayRMI(this.listaGateways).getBlendFile(recordTrabajoParte.rTrabajo().gStorageBlendName());
 			} catch (RemoteException e) {
-				throw new RuntimeException(e);
+				log.error("Error: " + e.getMessage());
 			}
 			File blendFile = persistBlendFile(blendFileBytes, thisWorkBlendDir.getPath(), recordTrabajoParte.rTrabajo().gStorageBlendName());
 			startRender(recordTrabajoParte, thisWorkRenderDir.getPath(), blendFile);
@@ -178,12 +181,12 @@ public class Worker {
 		try {
 			latch.await();
 		} catch (InterruptedException e) {
-			throw new RuntimeException(e);
+			log.error("Error: " + e.getMessage());
 		}
 		try {
 			new ZipFile(thisWorkRenderDir + recordTrabajoParte.rTrabajo().gStorageBlendName()+".zip").addFolder(new File(thisWorkRenderDir));
 		} catch (ZipException e) {
-			throw new RuntimeException(e);
+			log.error("Error: " + e.getMessage());
 		}
 		try {
 			File zipRenderedImages = new File(thisWorkRenderDir + recordTrabajoParte.rTrabajo().gStorageBlendName()+".zip");
@@ -198,7 +201,7 @@ public class Worker {
 				}
 			}
 		} catch (Exception e) {
-			e.printStackTrace();
+			log.error(e.getMessage());
 		}
 		log.info("==========Termine=========");
 	}
@@ -247,7 +250,7 @@ public class Worker {
 					10000,
 					10000);
 		} catch (IOException e) {
-			throw new RuntimeException(e);
+			log.error("Error: " + e.getMessage());
 		}
 		if(SystemUtils.IS_OS_WINDOWS){
 			unzipBlenderPortable();
@@ -262,7 +265,7 @@ public class Worker {
 		try {
 			new ZipFile(this.singleWorkerDir + this.blenderPortable).extractAll(this.singleWorkerDir);
 		} catch (ZipException e) {
-			throw new RuntimeException(e);
+			log.error("Error: " + e.getMessage());
 		}
 		log.info("Unzip Blender terminado.");
 		File zipFileBlender = new File(this.singleWorkerDir + this.blenderPortable);
@@ -279,7 +282,7 @@ public class Worker {
 			Process process = pb.start();
 			process.waitFor();
 		} catch (InterruptedException | IOException e) {
-			throw new RuntimeException(e);
+			log.error("Error: " + e.getMessage());
 		}
 		log.info("Untar Blender terminado.");
 		File tarFileBlender = new File(this.singleWorkerDir + this.blenderPortable);
