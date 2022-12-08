@@ -249,15 +249,15 @@ public class Worker {
 					new File(this.singleWorkerDir + this.blenderPortable),
 					10000,
 					10000);
+			if(SystemUtils.IS_OS_WINDOWS){
+				unzipBlenderPortable();
+			} else {
+				untarBlenderPortable();
+			}
+			renameBlenderFolder();
 		} catch (IOException e) {
 			log.error("Error: " + e.getMessage());
 		}
-		if(SystemUtils.IS_OS_WINDOWS){
-			unzipBlenderPortable();
-		} else {
-			untarBlenderPortable();
-		}
-		renameBlenderFolder();
 	}
 
 	private void unzipBlenderPortable(){
