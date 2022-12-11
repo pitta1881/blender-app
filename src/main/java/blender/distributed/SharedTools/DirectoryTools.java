@@ -10,9 +10,9 @@ public class DirectoryTools {
 	public static long getFolderSize(File folder) {
 	    long length = 0;
 	    File[] files = folder.listFiles();
-	 
+
 	    int count = files.length;
-	 
+
 	    for (int i = 0; i < count; i++) {
 	        if (files[i].isFile()) {
 	            length += files[i].length();
@@ -28,9 +28,9 @@ public class DirectoryTools {
 		File fFolder = new File(path);
 		if(!fFolder.isDirectory()){
 			fFolder.mkdir();
-			log.info("Success: "+fFolder.getPath()+" Directorio creado.");
+			log.info("Success: "+fFolder.getAbsolutePath()+" Directorio creado.");
 		} else {
-			log.info(fFolder.getPath()+" ---->Directorio");
+			log.info(fFolder.getAbsolutePath()+" ---->Directorio");
 		}
 		return true;
 	}

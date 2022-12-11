@@ -106,11 +106,11 @@ public class Worker {
 			}
 			recordTrabajoParte = gson.fromJson(recordTrabajoParteJson, RTrabajoParteType);
 			File thisWorkDir = new File(this.worksDir + recordTrabajoParte.rParte().uuid());
-			DirectoryTools.checkOrCreateFolder(thisWorkDir.getPath());
+			DirectoryTools.checkOrCreateFolder(thisWorkDir.getAbsolutePath());
 			File thisWorkRenderDir = new File(thisWorkDir + this.rendersDir);
-			DirectoryTools.checkOrCreateFolder(thisWorkRenderDir.getPath());
+			DirectoryTools.checkOrCreateFolder(thisWorkRenderDir.getAbsolutePath());
 			File thisWorkBlendDir = new File(thisWorkDir + this.blendDir);
-			DirectoryTools.checkOrCreateFolder(thisWorkBlendDir.getPath());
+			DirectoryTools.checkOrCreateFolder(thisWorkBlendDir.getAbsolutePath());
 			log.info("Recibi un nuevo trabajo: " + recordTrabajoParte.rParte().uuid());
 			byte[] blendFileBytes = new byte[0];
 			try {
@@ -118,8 +118,8 @@ public class Worker {
 			} catch (RemoteException e) {
 				log.error("Error: " + e.getMessage());
 			}
-			File blendFile = persistBlendFile(blendFileBytes, thisWorkBlendDir.getPath(), recordTrabajoParte.rTrabajo().gStorageBlendName());
-			startRender(recordTrabajoParte, thisWorkRenderDir.getPath(), blendFile);
+			File blendFile = persistBlendFile(blendFileBytes, thisWorkBlendDir.getAbsolutePath(), recordTrabajoParte.rTrabajo().gStorageBlendName());
+			startRender(recordTrabajoParte, thisWorkRenderDir.getAbsolutePath(), blendFile);
 			DirectoryTools.deleteDirectory(thisWorkDir);
 		}
 	}
@@ -142,12 +142,17 @@ public class Worker {
 		int threadsNedeed = 1;
 		CountDownLatch latch;
 		List<WorkerProcessThread> workerThreads = new ArrayList<>();
+		File f0 = new File(thisWorkRenderDir);
 		if(totalFrames == 0) {
-			cmd = " -b \"" + blendFile.getPath() + "\" -o \"" + thisWorkRenderDir + "/frame_#####\"" + " -f " + recordTrabajoParte.rParte().startFrame();
+			if(SystemUtils.IS_OS_WINDOWS){
+				cmd = " -b \"" + blendFile.getAbsolutePath() + "\" -o \"" + f0.getAbsolutePath() + "/frame_#####\"" + " -f " + recordTrabajoParte.rParte().startFrame();
+			} else {
+				cmd = " -b " + blendFile.getAbsolutePath() + " -o " + f0.getAbsolutePath() + "/frame_#####" + " -f " + recordTrabajoParte.rParte().startFrame();
+			}
 			latch = new CountDownLatch(threadsNedeed);
-			File f = new File(this.blenderExe + cmd);//Normalize backslashs and slashs
-			System.out.println("CMD: " + f.getPath());
-			workerThreads.add(new WorkerProcessThread(latch, f.getPath()));
+			File f1 = new File(this.blenderExe + cmd);//Normalize backslashs and slashs
+			System.out.println("CMD: " + f1.getAbsolutePath());
+			workerThreads.add(new WorkerProcessThread(latch, f1.getAbsolutePath()));
 		} else {
 			if(totalFrames >= 300){
 				threadsNedeed = 8;
@@ -163,10 +168,14 @@ public class Worker {
 			int endFrame = startFrame + rangeFrame;
 			latch = new CountDownLatch(threadsNedeed);
 			for (int i = 0; i < threadsNedeed; i++) {
-				cmd = " -b \"" + blendFile.getPath() + "\" -o \"" + thisWorkRenderDir + "/frame_#####\"" + " -s " + startFrame + " -e " + endFrame + " -a";
-				File f = new File(this.blenderExe + cmd);//Normalize backslashs and slashs
-				log.info("CMD: " + f.getPath());
-				workerThreads.add(new WorkerProcessThread(latch, f.getPath()));
+				if(SystemUtils.IS_OS_WINDOWS){
+					cmd = " -b \"" + blendFile.getAbsolutePath() + "\" -o \"" + f0.getAbsolutePath() + "/frame_#####\"" + " -s " + startFrame + " -e " + endFrame + " -a";
+				} else {
+					cmd = " -b " + blendFile.getAbsolutePath() + " -o " + f0.getAbsolutePath() + "/frame_#####" + " -s " + startFrame + " -e " + endFrame + " -a";
+				}
+				File f1 = new File(this.blenderExe + cmd);//Normalize backslashs and slashs
+				log.info("CMD: " + f1.getAbsolutePath());
+				workerThreads.add(new WorkerProcessThread(latch, f1.getAbsolutePath()));
 				startFrame = endFrame + 1;
 				endFrame += rangeFrame;
 				if(endFrame > recordTrabajoParte.rParte().endFrame()){
@@ -225,11 +234,11 @@ public class Worker {
 		File appDir = new File(this.appDir);
 		File workerDir = new File(this.workerDir);
 		File singleWorkerDir = new File(this.singleWorkerDir);
-		DirectoryTools.checkOrCreateFolder(appDir.getPath());
-		DirectoryTools.checkOrCreateFolder(workerDir.getPath());
-		DirectoryTools.checkOrCreateFolder(singleWorkerDir.getPath());
+		DirectoryTools.checkOrCreateFolder(appDir.getAbsolutePath());
+		DirectoryTools.checkOrCreateFolder(workerDir.getAbsolutePath());
+		DirectoryTools.checkOrCreateFolder(singleWorkerDir.getAbsolutePath());
 		long size = DirectoryTools.getFolderSize(singleWorkerDir);
-		log.info("Obteniendo tamanio de: " + singleWorkerDir.getPath() + " MB:" + (size / 1024));
+		log.info("Obteniendo tamanio de: " + singleWorkerDir.getAbsolutePath() + " MB:" + (size / 1024));
 		if (size < 30000000) {
 			downloadBlenderApp();
 		} else {
