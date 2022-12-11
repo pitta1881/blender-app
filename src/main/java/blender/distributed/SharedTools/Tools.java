@@ -18,7 +18,6 @@ public class Tools {
             log.info("Reintentando con el próximo " + nodo + " ...");
             Thread.sleep(2000);
         } catch (InterruptedException e) {
-            log.error("Error: " + e.getMessage());
         }
     }
 

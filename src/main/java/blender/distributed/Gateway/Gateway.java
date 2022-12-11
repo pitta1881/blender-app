@@ -85,14 +85,15 @@ public class Gateway {
 	private void runRMIGateway(int rmiPortForClientes, int rmiPortForWorkers, int rmiPortForServidores) {
 		try {
 			System.setProperty("sun.security.ssl.allowUnsafeRenegotiation", "true"); // renegotiation process is disabled by default.. Without this can't run two clients rmi on same machine like worker and client.
+			System.setProperty("java.rmi.server.hostname", this.myPublicIp);
 			log.info("Levantando gateway RMI...");
 			registryCli = LocateRegistry.createRegistry(rmiPortForClientes);
 			registryWk = LocateRegistry.createRegistry(rmiPortForWorkers);
 			registrySv = LocateRegistry.createRegistry(rmiPortForServidores);
 
-			remoteCliente = (IClienteAction) UnicastRemoteObject.exportObject(new GatewayClienteAction(this.listaServidores),0);
-			remoteWorker = (IWorkerAction) UnicastRemoteObject.exportObject(new GatewayWorkerAction(this.listaServidores),0);
-			remoteServidor = (IGatewayServidorAction) UnicastRemoteObject.exportObject(new GatewayServidorAction(this.redisPrivClient, this.listaServidores),0);
+			remoteCliente = (IClienteAction) UnicastRemoteObject.exportObject(new GatewayClienteAction(this.listaServidores),rmiPortForClientes);
+			remoteWorker = (IWorkerAction) UnicastRemoteObject.exportObject(new GatewayWorkerAction(this.listaServidores),rmiPortForWorkers);
+			remoteServidor = (IGatewayServidorAction) UnicastRemoteObject.exportObject(new GatewayServidorAction(this.redisPrivClient, this.listaServidores),rmiPortForServidores);
 
 			registryCli.rebind("clienteAction", remoteCliente);
 			registryWk.rebind("workerAction", remoteWorker);

@@ -73,6 +73,7 @@ public class GatewayWorkerAction implements IWorkerAction {
 				stubServidor = (IWorkerAction) workerRMI.lookup("workerAction");
 				return stubServidor;
 			} catch (RemoteException | NotBoundException e) {
+				log.error("Error: " + e.getMessage());
 				manageGatewayServidorFall(ENodo.SERVIDOR, ip, port);
 				return connectRandomServidorRMIForWorker();
 			}

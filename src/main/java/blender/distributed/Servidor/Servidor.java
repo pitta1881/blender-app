@@ -80,13 +80,14 @@ public class Servidor {
 	private void runRMIServer(int rmiPortForClientes, int rmiPortForWorkers) {
 		try {
 			System.setProperty("sun.security.ssl.allowUnsafeRenegotiation", "true"); // renegotiation process is disabled by default.. Without this can't run two clients rmi on same machine like worker and client.
+			System.setProperty("java.rmi.server.hostname", this.myPublicIp);
 			createSingleServerDir(rmiPortForWorkers);
 			log.info("Levantando servidor RMI en puertos " + rmiPortForClientes + "(Clientes) y " + rmiPortForWorkers + "(Workers)");
 			registryCli = LocateRegistry.createRegistry(rmiPortForClientes);
 			registrySv = LocateRegistry.createRegistry(rmiPortForWorkers);
 
-			remoteCliente = (IClienteAction) UnicastRemoteObject.exportObject(new ClienteAction(this.listaGateways, this.frameDivision),0);
-			remoteWorker = (IWorkerAction) UnicastRemoteObject.exportObject(new WorkerAction(this.listaGateways, this.singleServerDir),0);
+			remoteCliente = (IClienteAction) UnicastRemoteObject.exportObject(new ClienteAction(this.listaGateways, this.frameDivision),rmiPortForClientes);
+			remoteWorker = (IWorkerAction) UnicastRemoteObject.exportObject(new WorkerAction(this.listaGateways, this.singleServerDir),rmiPortForWorkers);
 
 			registryCli.rebind("clienteAction", remoteCliente);
 			registrySv.rebind("workerAction", remoteWorker);
@@ -145,17 +146,14 @@ public class Servidor {
 
 	private void helloGateway() {
 		try {
+			Thread.sleep(1000);
 			String uuid = connectRandomGatewayRMIForServidor(this.listaGateways).helloGatewayFromServidor(this.myPublicIp, this.rmiPortForClientes, this.rmiPortForWorkers);
 			if(!uuid.isEmpty()){
 				log.info("Conectado a un Gateway. UUID Asignado: " + uuid);
 				this.uuid = uuid;
 			}
-		} catch (RemoteException | NullPointerException e) {
-			try {
-				Thread.sleep(1000);
-			} catch (InterruptedException ex) {
-				throw new RuntimeException(ex);
-			}
+		} catch (InterruptedException | RemoteException | NullPointerException e) {
+			log.error("Error: " + e.getMessage());
 			helloGateway();
 		}
 	}

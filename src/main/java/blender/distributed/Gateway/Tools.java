@@ -30,6 +30,7 @@ public class Tools {
                 stubGateway = (IGatewayServidorAction) servidorRMI.lookup("servidorAction");
                 return stubGateway;
             } catch (RemoteException | NotBoundException e) {
+                log.error("Error: " + e.getMessage());
                 manageGatewayServidorFall(ENodo.GATEWAY, ip, port);
                 return connectRandomGatewayRMIForServidor(listaGateways);
             }

@@ -54,6 +54,7 @@ public class GatewayClienteAction implements IClienteAction {
 				stubServidor = (IClienteAction) clienteRMI.lookup("clienteAction");
 				return stubServidor;
 			} catch (RemoteException | NotBoundException e) {
+				log.error("Error: " + e.getMessage());
 				manageGatewayServidorFall(ENodo.SERVIDOR, ip, port);
 				return connectRandomServidorRMIForCliente();
 			}
