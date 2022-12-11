@@ -43,10 +43,10 @@ public class Servidor {
 	//RMI
 	private int rmiPortForClientes;
 	private int rmiPortForWorkers;
-	Registry registryCli;
-	Registry registrySv;
-	private IClienteAction remoteCliente;
-	private IWorkerAction remoteWorker;
+	static Registry registryCli;
+	static Registry registrySv;
+	private static IClienteAction remoteCliente;
+	private static IWorkerAction remoteWorker;
 
 	private String redisPubURI;
 	List<RGateway> listaGateways;

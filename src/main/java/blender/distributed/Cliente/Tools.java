@@ -21,18 +21,18 @@ public class Tools {
     public static IClienteAction connectRandomGatewayRMI(List<RGateway> listaGateways) {
         IClienteAction stubGateway = null;
         if(listaGateways.size() > 0) {
-                Random rand = new Random();
-                int nRandomGateway = rand.nextInt(listaGateways.size());
-                String ip = listaGateways.get(nRandomGateway).ip();
-                int port = listaGateways.get(nRandomGateway).rmiPortForClientes();
-                try {
-                    Registry clienteRMI = LocateRegistry.getRegistry(ip, port);
-                    stubGateway = (IClienteAction) clienteRMI.lookup("clienteAction");
-                    return stubGateway;
-                } catch (RemoteException | NotBoundException e) {
-                    manageGatewayServidorFall(ENodo.GATEWAY,ip, port);
-                    return connectRandomGatewayRMI(listaGateways);
-                }
+            Random rand = new Random();
+            int nRandomGateway = rand.nextInt(listaGateways.size());
+            String ip = listaGateways.get(nRandomGateway).ip();
+            int port = listaGateways.get(nRandomGateway).rmiPortForClientes();
+            try {
+                Registry clienteRMI = LocateRegistry.getRegistry(ip, port);
+                stubGateway = (IClienteAction) clienteRMI.lookup("clienteAction");
+                return stubGateway;
+            } catch (RemoteException | NotBoundException e) {
+                manageGatewayServidorFall(ENodo.GATEWAY,ip, port);
+                return connectRandomGatewayRMI(listaGateways);
+            }
         } else {
             log.error("No hay ningun gateway disponible.");
             try {

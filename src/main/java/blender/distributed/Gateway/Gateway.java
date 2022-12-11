@@ -9,6 +9,7 @@ import blender.distributed.Gateway.Threads.RefreshListaWorkersThread;
 import blender.distributed.Records.RGateway;
 import blender.distributed.Records.RServidor;
 import blender.distributed.Servidor.Cliente.IClienteAction;
+import blender.distributed.Gateway.Threads.SendPingAliveThread;
 import blender.distributed.Servidor.Worker.IWorkerAction;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
@@ -27,6 +28,7 @@ import java.rmi.RemoteException;
 import java.rmi.registry.LocateRegistry;
 import java.rmi.registry.Registry;
 import java.rmi.server.UnicastRemoteObject;
+import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -43,22 +45,24 @@ public class Gateway {
 	private int rmiPortForClientes;
 	private int rmiPortForWorkers;
 	private int rmiPortForServidores;
-	Registry registryCli;
-	Registry registryWk;
-	Registry registrySv;
-	private IClienteAction remoteCliente;
-	private IWorkerAction remoteWorker;
-	private IGatewayServidorAction remoteServidor;
+	static Registry registryCli;
+	static Registry registryWk;
+	static Registry registrySv;
+	private static IClienteAction remoteCliente;
+	private static IWorkerAction remoteWorker;
+	private static IGatewayServidorAction remoteServidor;
 
 	//redis related
 	private String redisPrivURI;
 	private String redisPubWriteURI;
 	RedisClient redisPrivClient;
+	RedisClient redisPubClient;
 	List<RServidor> listaServidores = new ArrayList<>();
 	boolean flushDb = false;
 	Dotenv dotenv = Dotenv.load();
 	Gson gson = new Gson();
 	Type RListaServidorType = new TypeToken<List<RServidor>>(){}.getType();
+	String uuid;
 	public Gateway(boolean flushDb) {
 		this.flushDb = flushDb;
 		MDC.put("log.name", this.getClass().getSimpleName());
@@ -68,6 +72,7 @@ public class Gateway {
 		runRedisPubClient();
 		createThreadRefreshListaServidores();
 		createThreadRefreshListaWorkers();
+		createThreadSendPingAlive();
 	}
 
 	private void createThreadRefreshListaServidores() {
@@ -79,6 +84,12 @@ public class Gateway {
 	private void createThreadRefreshListaWorkers() {
 		RefreshListaWorkersThread listaWorkersT = new RefreshListaWorkersThread(this.redisPrivClient);
 		Thread threadAliveT = new Thread(listaWorkersT);
+		threadAliveT.start();
+	}
+
+	private void createThreadSendPingAlive() {
+		SendPingAliveThread aliveT = new SendPingAliveThread(this.redisPubClient, this.uuid, this.myPublicIp, this.rmiPortForClientes, this.rmiPortForWorkers, this.rmiPortForServidores);
+		Thread threadAliveT = new Thread(aliveT);
 		threadAliveT.start();
 	}
 
@@ -138,16 +149,15 @@ public class Gateway {
 	}
 
 	private void runRedisPubClient() {
-		RedisClient redisPubClient = RedisClient.create(this.redisPubWriteURI);
-		StatefulRedisConnection redisConnection = redisPubClient.connect();
+		this.redisPubClient = RedisClient.create(this.redisPubWriteURI);
+		StatefulRedisConnection redisConnection = this.redisPubClient.connect();
 		log.info("Conectado a Redis Público exitosamente.");
 		RedisCommands commands = redisConnection.sync();
 		if(flushDb) commands.flushdb();
-		String uuid = UUID.randomUUID().toString();
-		commands.hset("listaGateways", uuid, gson.toJson(new RGateway(uuid, this.myPublicIp, this.rmiPortForClientes, this.rmiPortForWorkers, this.rmiPortForServidores)));
-		log.info("Iniciando Gateway -> " + uuid);
+		this.uuid = UUID.randomUUID().toString();
+		commands.hset("listaGateways", this.uuid, gson.toJson(new RGateway(this.uuid, this.myPublicIp, this.rmiPortForClientes, this.rmiPortForWorkers, this.rmiPortForServidores, LocalTime.now().toString())));
+		log.info("Iniciando Gateway -> " + this.uuid);
 		redisConnection.close();
-		redisPubClient.shutdown();
 	}
 
 	private void runRedisPrivClient() {
