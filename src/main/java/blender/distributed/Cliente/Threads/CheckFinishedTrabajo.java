@@ -14,6 +14,7 @@ import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.Box;
 import javax.swing.BoxLayout;
+import javax.swing.JOptionPane;
 import java.awt.Component;
 import java.awt.Color;
 import java.awt.Cursor;
@@ -39,10 +40,12 @@ public class CheckFinishedTrabajo implements Runnable{
     Gson gson = new Gson();
     Type RTrabajoType = new TypeToken<RTrabajo>(){}.getType();
     Dotenv dotenv = Dotenv.load();
+    int tries;
 
-    public CheckFinishedTrabajo(List<RGateway> listaGateways, RTrabajo recordTrabajo){
+    public CheckFinishedTrabajo(List<RGateway> listaGateways, RTrabajo recordTrabajo, int tries){
         this.listaGateways = listaGateways;
         this.recordTrabajo = recordTrabajo;
+        this.tries = tries;
     }
 
     @Override
@@ -55,13 +58,14 @@ public class CheckFinishedTrabajo implements Runnable{
         RTrabajo recordTrabajo = null;
         while (!salir) {
             try {
-                recordTrabajoJson = connectRandomGatewayRMI(this.listaGateways).getTrabajo(this.recordTrabajo.uuid());
+                recordTrabajoJson = connectRandomGatewayRMI(this.listaGateways, this.tries).getTrabajo(this.recordTrabajo.uuid());
                 recordTrabajo = gson.fromJson(recordTrabajoJson, RTrabajoType);
                 if (recordTrabajo != null && recordTrabajo.estado() == EStatus.DONE && recordTrabajo.gStorageZipName() != null) {
                     salir = true;
                 }
                 Thread.sleep(1000);
             } catch (RemoteException | InterruptedException e) {
+                JOptionPane.showMessageDialog(null,"Error al enviar el archivo.", "Error", JOptionPane.ERROR_MESSAGE);
                 log.error("Error: " + e.getMessage());
             }
         }

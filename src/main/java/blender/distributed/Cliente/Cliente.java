@@ -14,6 +14,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
 
+import javax.swing.JOptionPane;
 import java.io.File;
 import java.io.IOException;
 import java.lang.reflect.Type;
@@ -32,6 +33,7 @@ public class Cliente{
 	private String redisPubURI;
 	Type RTrabajoType = new TypeToken<RTrabajo>(){}.getType();
 	Dotenv dotenv = Dotenv.load();
+	final int tries = 4;
 
 	public Cliente() {
 		readConfigFile();
@@ -67,10 +69,11 @@ public class Cliente{
 		if(this.file != null) {
 			log.info("Enviando el archivo: "+this.file.getName());
 			try {
-				String recordTrabajoJson = connectRandomGatewayRMI(this.listaGateways).renderRequest(this.fileContent, file.getName(), startFrame, endFrame);
+				String recordTrabajoJson = connectRandomGatewayRMI(this.listaGateways, this.tries).renderRequest(this.fileContent, file.getName(), startFrame, endFrame);
 				RTrabajo recordTrabajo = new Gson().fromJson(recordTrabajoJson, RTrabajoType);
 				createThreadCheckFinishedTrabajo(recordTrabajo);
 			} catch (RemoteException e) {
+				JOptionPane.showMessageDialog(null,"Error al enviar el archivo. Intentelo nuevamente en unos instantes.", "Error", JOptionPane.ERROR_MESSAGE);
 				log.error("Error: " + e.getMessage());
 			}
 		}else {
@@ -86,7 +89,7 @@ public class Cliente{
 	}
 
 	private void createThreadCheckFinishedTrabajo(RTrabajo recordTrabajo) {
-		CheckFinishedTrabajo checkFinishedTrabajoT = new CheckFinishedTrabajo(this.listaGateways, recordTrabajo);
+		CheckFinishedTrabajo checkFinishedTrabajoT = new CheckFinishedTrabajo(this.listaGateways, recordTrabajo, this.tries);
 		Thread threadListaT = new Thread(checkFinishedTrabajoT);
 		threadListaT.start();
 	}

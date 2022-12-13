@@ -18,7 +18,9 @@ import static blender.distributed.SharedTools.Tools.manageGatewayServidorFall;
 public class Tools {
     static Logger log = LoggerFactory.getLogger(Tools.class);
 
-    public static IClienteAction connectRandomGatewayRMI(List<RGateway> listaGateways) {
+    public static IClienteAction connectRandomGatewayRMI(List<RGateway> listaGateways, int tries) throws RemoteException {
+        tries--;
+        if(tries <= 0) throw new RemoteException("Ningun gateway responde o no hay ninguno disponible.");
         IClienteAction stubGateway = null;
         if(listaGateways.size() > 0) {
             Random rand = new Random();
@@ -31,7 +33,7 @@ public class Tools {
                 return stubGateway;
             } catch (RemoteException | NotBoundException e) {
                 manageGatewayServidorFall(ENodo.GATEWAY,ip, port);
-                return connectRandomGatewayRMI(listaGateways);
+                return connectRandomGatewayRMI(listaGateways, tries);
             }
         } else {
             log.error("No hay ningun gateway disponible.");
@@ -39,7 +41,7 @@ public class Tools {
                 Thread.sleep(2000);
             } catch (InterruptedException e) {
             }
-            return connectRandomGatewayRMI(listaGateways);
+            return connectRandomGatewayRMI(listaGateways, tries);
         }
     }
 }
