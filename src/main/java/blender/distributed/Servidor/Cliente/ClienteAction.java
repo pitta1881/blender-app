@@ -1,12 +1,12 @@
 package blender.distributed.Servidor.Cliente;
 
+import blender.distributed.Enums.ENodo;
 import blender.distributed.Enums.EStatus;
 import blender.distributed.Records.RGateway;
 import blender.distributed.Records.RParte;
 import blender.distributed.Records.RTrabajo;
 import com.google.gson.Gson;
 import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
 
 import java.rmi.RemoteException;
@@ -15,28 +15,29 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
-import static blender.distributed.Gateway.Tools.connectRandomGatewayRMIForServidor;
+import static blender.distributed.Servidor.Tools.connectRandomGatewayRMIForServidor;
 
 public class ClienteAction implements IClienteAction {
-	Logger log = LoggerFactory.getLogger(ClienteAction.class);
+	Logger log;
 	List<RGateway> listaGateways;
 	int frameDivision;
 	Gson gson = new Gson();
 
-	public ClienteAction(List<RGateway> listaGateways, int frameDivision) {
-		MDC.put("log.name", ClienteAction.class.getSimpleName());
+	public ClienteAction(List<RGateway> listaGateways, int frameDivision, Logger log) {
+		MDC.put("log.name", ENodo.SERVIDOR.name());
 		this.listaGateways = listaGateways;
 		this.frameDivision = frameDivision;
+		this.log = log;
 	}
     @Override
 	public String renderRequest(byte[] blendFile, String blendName, int startFrame, int endFrame) {
 		String uuid = UUID.randomUUID().toString();
 		try {
-			connectRandomGatewayRMIForServidor(this.listaGateways).storeBlendFile(uuid+".blend", blendFile);
+			connectRandomGatewayRMIForServidor(this.listaGateways, this.log).storeBlendFile(uuid+".blend", blendFile);
 			List<String> listaUUIDPartes = dividirEnPartes(uuid, startFrame, endFrame);
 			RTrabajo recordTrabajo = new RTrabajo(uuid, blendName, startFrame, endFrame, EStatus.TO_DO, listaUUIDPartes, uuid+".blend", null, LocalDateTime.now().toString());
 			String json = gson.toJson(recordTrabajo);
-			connectRandomGatewayRMIForServidor(this.listaGateways).setTrabajo(uuid, json);
+			connectRandomGatewayRMIForServidor(this.listaGateways, this.log).setTrabajo(uuid, json);
 			log.info("Registrando nuevo trabajo: " + recordTrabajo);
 			return json;
 		} catch (RemoteException | NullPointerException e) {
@@ -47,7 +48,7 @@ public class ClienteAction implements IClienteAction {
 	@Override
 	public String getTrabajo(String uuid) {
 		try {
-			return connectRandomGatewayRMIForServidor(this.listaGateways).getTrabajo(uuid);
+			return connectRandomGatewayRMIForServidor(this.listaGateways, this.log).getTrabajo(uuid);
 		} catch (RemoteException e) {
 			return getTrabajo(uuid);
 		}
@@ -67,7 +68,7 @@ public class ClienteAction implements IClienteAction {
 			uuidPartes.add(uuid);
 			RParte recordParte = new RParte(uuidTrabajo, uuid, partStartFrame, partEndFrame, EStatus.TO_DO, null);
 			try {
-				connectRandomGatewayRMIForServidor(this.listaGateways).setParte(uuid, gson.toJson(recordParte));
+				connectRandomGatewayRMIForServidor(this.listaGateways, this.log).setParte(uuid, gson.toJson(recordParte));
 			} catch (RemoteException e) {
 				log.error("Error: " + e.getMessage());
 			}

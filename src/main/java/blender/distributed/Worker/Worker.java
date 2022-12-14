@@ -1,5 +1,6 @@
 package blender.distributed.Worker;
 
+import blender.distributed.Enums.ENodo;
 import blender.distributed.Records.RGateway;
 import blender.distributed.Records.RTrabajoParte;
 import blender.distributed.SharedTools.DirectoryTools;
@@ -46,7 +47,7 @@ public class Worker {
 	String blenderPortable;
 	String appDir = System.getProperty("user.dir") + "/app/";
 	String workerDir = appDir + "Worker/";
-	String workerName = "worker"+System.currentTimeMillis(); //"worker1670282810869"; //"worker1663802677985"; //"worker"+System.currentTimeMillis();
+	String workerName = "worker"+System.currentTimeMillis();
 	String singleWorkerDir = workerDir + "/" + workerName + "/";
 	String urlBlenderPortable;
 	String blenderExe;
@@ -65,13 +66,12 @@ public class Worker {
 	Dotenv dotenv = Dotenv.load();
 
 	public Worker () {
-		MDC.put("log.name", this.getClass().getSimpleName());
-		log.info("Iniciando Worker -> " + this.workerName);
+		MDC.put("log.name", ENodo.WORKER.name());
 		readConfigFile();
 		runRedisPubClient();
-		createThreadRefreshListaGateways();
-		createThreadSendPingAlive();
 		if (checkNeededFiles()) {
+			createThreadRefreshListaGateways();
+			createThreadSendPingAlive();
 			getWork();
 		} else {
 			log.debug("Error inesperado!");
@@ -79,24 +79,23 @@ public class Worker {
 	}
 
 	private void createThreadSendPingAlive() {
-		SendPingAliveThread aliveT = new SendPingAliveThread(this.listaGateways, this.workerName);
+		SendPingAliveThread aliveT = new SendPingAliveThread(this.listaGateways, this.workerName, this.log);
 		Thread threadAliveT = new Thread(aliveT);
 		threadAliveT.start();
 	}
 	private void createThreadRefreshListaGateways() {
-		RefreshListaGatewaysThread listaGatewaysT = new RefreshListaGatewaysThread(this.listaGateways, this.redisPubClient);
+		RefreshListaGatewaysThread listaGatewaysT = new RefreshListaGatewaysThread(this.listaGateways, this.redisPubClient, this.log, ENodo.WORKER.name());
 		Thread threadAliveT = new Thread(listaGatewaysT);
 		threadAliveT.start();
 	}
 
 	private void getWork() {
-		DirectoryTools.checkOrCreateFolder(this.worksDir);
 		while (true) {
 			String recordTrabajoParteJson = null;
 			RTrabajoParte recordTrabajoParte = null;
 			while (recordTrabajoParteJson == null){
 				try {
-					recordTrabajoParteJson = connectRandomGatewayRMI(this.listaGateways).getWorkToDo(this.workerName);
+					recordTrabajoParteJson = connectRandomGatewayRMI(this.listaGateways, this.log).getWorkToDo(this.workerName);
 					if(recordTrabajoParteJson == null) {
 						Thread.sleep(1000);
 					}
@@ -105,16 +104,17 @@ public class Worker {
 				}
 			}
 			recordTrabajoParte = gson.fromJson(recordTrabajoParteJson, RTrabajoParteType);
-			File thisWorkDir = new File(this.worksDir + recordTrabajoParte.rParte().uuid());
-			DirectoryTools.checkOrCreateFolder(thisWorkDir.getAbsolutePath());
+			File thisWorkDir = new File(this.singleWorkerDir + this.worksDir + recordTrabajoParte.rParte().uuid());
+			DirectoryTools.checkOrCreateFolder(thisWorkDir.getAbsolutePath(), ENodo.WORKER.name());
 			File thisWorkRenderDir = new File(thisWorkDir + this.rendersDir);
-			DirectoryTools.checkOrCreateFolder(thisWorkRenderDir.getAbsolutePath());
+			DirectoryTools.checkOrCreateFolder(thisWorkRenderDir.getAbsolutePath(), ENodo.WORKER.name());
 			File thisWorkBlendDir = new File(thisWorkDir + this.blendDir);
-			DirectoryTools.checkOrCreateFolder(thisWorkBlendDir.getAbsolutePath());
+			DirectoryTools.checkOrCreateFolder(thisWorkBlendDir.getAbsolutePath(), ENodo.WORKER.name());
+			log.info("==========Trabajo Iniciado=========");
 			log.info("Recibi un nuevo trabajo: " + recordTrabajoParte.rParte().uuid());
 			byte[] blendFileBytes = new byte[0];
 			try {
-				blendFileBytes = connectRandomGatewayRMI(this.listaGateways).getBlendFile(recordTrabajoParte.rTrabajo().gStorageBlendName());
+				blendFileBytes = connectRandomGatewayRMI(this.listaGateways, this.log).getBlendFile(recordTrabajoParte.rTrabajo().gStorageBlendName());
 			} catch (RemoteException e) {
 				log.error("Error: " + e.getMessage());
 			}
@@ -150,9 +150,9 @@ public class Worker {
 				cmd = " -b " + blendFile.getAbsolutePath() + " -o " + f0.getAbsolutePath() + "/frame_#####" + " -f " + recordTrabajoParte.rParte().startFrame();
 			}
 			latch = new CountDownLatch(threadsNedeed);
-			File f1 = new File(this.blenderExe + cmd);//Normalize backslashs and slashs
+			File f1 = new File(this.singleWorkerDir + this.blenderExe + cmd);//Normalize backslashs and slashs
 			System.out.println("CMD: " + f1.getAbsolutePath());
-			workerThreads.add(new WorkerProcessThread(latch, f1.getAbsolutePath()));
+			workerThreads.add(new WorkerProcessThread(latch, f1.getAbsolutePath(), this.log));
 		} else {
 			if(totalFrames >= 300){
 				threadsNedeed = 8;
@@ -173,9 +173,9 @@ public class Worker {
 				} else {
 					cmd = " -b " + blendFile.getAbsolutePath() + " -o " + f0.getAbsolutePath() + "/frame_#####" + " -s " + startFrame + " -e " + endFrame + " -a";
 				}
-				File f1 = new File(this.blenderExe + cmd);//Normalize backslashs and slashs
+				File f1 = new File(this.singleWorkerDir + this.blenderExe + cmd);//Normalize backslashs and slashs
 				log.info("CMD: " + f1.getAbsolutePath());
-				workerThreads.add(new WorkerProcessThread(latch, f1.getAbsolutePath()));
+				workerThreads.add(new WorkerProcessThread(latch, f1.getAbsolutePath(), this.log));
 				startFrame = endFrame + 1;
 				endFrame += rangeFrame;
 				if(endFrame > recordTrabajoParte.rParte().endFrame()){
@@ -203,7 +203,7 @@ public class Worker {
 			boolean zipSent = false;
 			while(!zipSent) {
 				try {
-					connectRandomGatewayRMI(this.listaGateways).setParteDone(this.workerName, recordTrabajoParte.rParte().uuid(), zipWithRenderedImages);
+					connectRandomGatewayRMI(this.listaGateways, this.log).setParteDone(this.workerName, recordTrabajoParte.rParte().uuid(), zipWithRenderedImages);
 					zipSent = true;
 				} catch (IOException e) {
 					log.error("Conexión perdida con el Servidor.");
@@ -212,7 +212,7 @@ public class Worker {
 		} catch (Exception e) {
 			log.error(e.getMessage());
 		}
-		log.info("==========Termine=========");
+		log.info("==========Trabajo Terminado=========");
 	}
 
 
@@ -234,16 +234,25 @@ public class Worker {
 		File appDir = new File(this.appDir);
 		File workerDir = new File(this.workerDir);
 		File singleWorkerDir = new File(this.singleWorkerDir);
-		DirectoryTools.checkOrCreateFolder(appDir.getAbsolutePath());
-		DirectoryTools.checkOrCreateFolder(workerDir.getAbsolutePath());
-		DirectoryTools.checkOrCreateFolder(singleWorkerDir.getAbsolutePath());
-		long size = DirectoryTools.getFolderSize(singleWorkerDir);
-		log.info("Obteniendo tamanio de: " + singleWorkerDir.getAbsolutePath() + " MB:" + (size / 1024));
-		if (size < 30000000) {
-			downloadBlenderApp();
+		DirectoryTools.checkOrCreateFolder(appDir.getAbsolutePath(), ENodo.WORKER.name());
+		DirectoryTools.checkOrCreateFolder(workerDir.getAbsolutePath(), ENodo.WORKER.name());
+		long sizeWorkerDir = DirectoryTools.getFolderSize(workerDir);
+		if (sizeWorkerDir < 30000000) {
+			DirectoryTools.checkOrCreateFolder(singleWorkerDir.getAbsolutePath(), ENodo.WORKER.name());
+			long sizeSingleWorkerDir = DirectoryTools.getFolderSize(singleWorkerDir);
+			log.info("Obteniendo tamanio de: " + singleWorkerDir.getAbsolutePath() + " MB:" + (sizeSingleWorkerDir / 1024));
+			if (sizeSingleWorkerDir < 30000000) {
+				downloadBlenderApp();
+			}
 		} else {
-			log.info("Blender ----> LISTO");
+			String contents[] = workerDir.list();
+			this.workerName = contents[0];
+			log.info("Directorio Detectado -> " + this.workerName);
+			this.singleWorkerDir = workerDir + "/" + this.workerName + "/";
 		}
+		DirectoryTools.checkOrCreateFolder(this.singleWorkerDir + this.worksDir, ENodo.WORKER.name());
+		log.info("Iniciado Worker -> " + this.workerName);
+		log.info("Blender ----> LISTO");
 		return true;
 	}
 
@@ -302,7 +311,7 @@ public class Worker {
 		File directoryPath = new File(this.singleWorkerDir);
 		String contents[] = directoryPath.list();
 		File dirToRename = new File(this.singleWorkerDir + contents[0]);
-		File newDir = new File(this.blenderDir);
+		File newDir = new File(this.singleWorkerDir + this.blenderDir);
 		dirToRename.renameTo(newDir);
 	}
 	private void readConfigFile() {
@@ -317,9 +326,9 @@ public class Worker {
 			this.redisPubURI = "redis://"+dotenv.get("REDIS_PUBLIC_USER")+":"+dotenv.get("REDIS_PUBLIC_PASS")+"@"+dotenv.get("REDIS_PUBLIC_IP")+":"+dotenv.get("REDIS_PUBLIC_PORT");
 
 			Map paths = (Map) config.get("paths");
-			this.blenderExe = this.singleWorkerDir + paths.get("blenderExe");
-			this.blenderDir = this.singleWorkerDir + paths.get("blenderDir");
-			this.worksDir = this.singleWorkerDir + paths.get("worksDir");
+			this.blenderExe = paths.get("blenderExe").toString();
+			this.blenderDir = paths.get("blenderDir").toString();
+			this.worksDir = paths.get("worksDir").toString();
 			this.blendDir = paths.get("blendDir").toString();
 			this.rendersDir = paths.get("rendersDir").toString();
 			this.blenderPortable = paths.get("blenderPortable").toString();

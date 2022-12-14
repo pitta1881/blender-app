@@ -1,5 +1,6 @@
 package blender.distributed.Cliente.Threads;
 
+import blender.distributed.Enums.ENodo;
 import blender.distributed.Enums.EStatus;
 import blender.distributed.Records.RGateway;
 import blender.distributed.Records.RTrabajo;
@@ -7,7 +8,7 @@ import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
 import io.github.cdimascio.dotenv.Dotenv;
 import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.slf4j.MDC;
 
 
 import javax.swing.JFrame;
@@ -34,7 +35,7 @@ import java.util.List;
 import static blender.distributed.Cliente.Tools.connectRandomGatewayRMI;
 
 public class CheckFinishedTrabajo implements Runnable{
-    Logger log = LoggerFactory.getLogger(CheckFinishedTrabajo.class);
+    Logger log;
     List<RGateway> listaGateways;
     RTrabajo recordTrabajo;
     Gson gson = new Gson();
@@ -42,14 +43,17 @@ public class CheckFinishedTrabajo implements Runnable{
     Dotenv dotenv = Dotenv.load();
     int tries;
 
-    public CheckFinishedTrabajo(List<RGateway> listaGateways, RTrabajo recordTrabajo, int tries){
+    public CheckFinishedTrabajo(List<RGateway> listaGateways, RTrabajo recordTrabajo, int tries, Logger log){
+        MDC.put("log.name", ENodo.CLIENTE.name());
         this.listaGateways = listaGateways;
         this.recordTrabajo = recordTrabajo;
         this.tries = tries;
+        this.log = log;
     }
 
     @Override
     public void run() {
+        MDC.put("log.name", ENodo.CLIENTE.name());
         boolean salir = false;
         LocalTime initTime = LocalTime.now();
         log.info("Trabajo enviado: " + this.recordTrabajo.toString());
@@ -58,7 +62,7 @@ public class CheckFinishedTrabajo implements Runnable{
         RTrabajo recordTrabajo = null;
         while (!salir) {
             try {
-                recordTrabajoJson = connectRandomGatewayRMI(this.listaGateways, this.tries).getTrabajo(this.recordTrabajo.uuid());
+                recordTrabajoJson = connectRandomGatewayRMI(this.listaGateways, this.tries, this.log).getTrabajo(this.recordTrabajo.uuid());
                 recordTrabajo = gson.fromJson(recordTrabajoJson, RTrabajoType);
                 if (recordTrabajo != null && recordTrabajo.estado() == EStatus.DONE && recordTrabajo.gStorageZipName() != null) {
                     salir = true;

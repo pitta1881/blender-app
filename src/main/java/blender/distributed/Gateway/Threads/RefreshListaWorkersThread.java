@@ -1,5 +1,6 @@
 package blender.distributed.Gateway.Threads;
 
+import blender.distributed.Enums.ENodo;
 import blender.distributed.Enums.EStatus;
 import blender.distributed.Records.RParte;
 import blender.distributed.Records.RWorker;
@@ -9,7 +10,7 @@ import io.lettuce.core.RedisClient;
 import io.lettuce.core.api.StatefulRedisConnection;
 import io.lettuce.core.api.sync.RedisCommands;
 import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.slf4j.MDC;
 
 import java.time.Duration;
 import java.time.LocalTime;
@@ -17,14 +18,17 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 public class RefreshListaWorkersThread implements Runnable {
-    Logger log = LoggerFactory.getLogger(RefreshListaWorkersThread.class);
+    Logger log;
     RedisClient redisPrivClient;
-    public RefreshListaWorkersThread(RedisClient redisPrivClient) {
+    public RefreshListaWorkersThread(RedisClient redisPrivClient, Logger log) {
+        MDC.put("log.name", ENodo.GATEWAY.name());
         this.redisPrivClient = redisPrivClient;
+        this.log = log;
     }
 
     @Override
     public void run() {
+        MDC.put("log.name", ENodo.GATEWAY.name());
         List<RWorker> newListaWorkers;
         List<RWorker> listaWorkersToDelete;
         StatefulRedisConnection redisConnection = redisPrivClient.connect();

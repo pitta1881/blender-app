@@ -1,5 +1,6 @@
 package blender.distributed.Servidor;
 
+import blender.distributed.Enums.ENodo;
 import blender.distributed.Records.RGateway;
 import blender.distributed.Servidor.Cliente.ClienteAction;
 import blender.distributed.Servidor.Cliente.IClienteAction;
@@ -29,7 +30,7 @@ import java.rmi.server.UnicastRemoteObject;
 import java.util.List;
 import java.util.Map;
 
-import static blender.distributed.Gateway.Tools.connectRandomGatewayRMIForServidor;
+import static blender.distributed.Servidor.Tools.connectRandomGatewayRMIForServidor;
 import static blender.distributed.SharedTools.Tools.getPublicIp;
 
 public class Servidor {
@@ -38,7 +39,7 @@ public class Servidor {
 	String appDir = System.getProperty("user.dir") + "/app/";
 	String serverDirectory = appDir + "Servidor/";
 	String singleServerDir;
-	private String myPublicIp = getPublicIp();
+	private String myPublicIp = getPublicIp(this.log, ENodo.SERVIDOR.name());
 
 	//RMI
 	private int rmiPortForClientes;
@@ -57,7 +58,7 @@ public class Servidor {
 
 
 	public Servidor() {
-		MDC.put("log.name", this.getClass().getSimpleName());
+		MDC.put("log.name", ENodo.SERVIDOR.name());
 		readConfigFile();
 		runRedisPubClient();
 		runRMIServer(this.rmiPortForClientes, this.rmiPortForWorkers);
@@ -67,12 +68,12 @@ public class Servidor {
 	}
 
 	private void createThreadSendPingAlive() {
-		SendPingAliveThread aliveT = new SendPingAliveThread(this.uuid, this.myPublicIp, this.listaGateways, this.rmiPortForClientes, this.rmiPortForWorkers);
+		SendPingAliveThread aliveT = new SendPingAliveThread(this.uuid, this.myPublicIp, this.listaGateways, this.rmiPortForClientes, this.rmiPortForWorkers, this.log);
 		Thread threadAliveT = new Thread(aliveT);
 		threadAliveT.start();
 	}
 	private void createThreadRefreshListaGateways() {
-		RefreshListaGatewaysThread listaGatewaysT = new RefreshListaGatewaysThread(this.listaGateways, this.redisPubClient);
+		RefreshListaGatewaysThread listaGatewaysT = new RefreshListaGatewaysThread(this.listaGateways, this.redisPubClient, this.log, ENodo.SERVIDOR.name());
 		Thread threadAliveT = new Thread(listaGatewaysT);
 		threadAliveT.start();
 	}
@@ -86,8 +87,8 @@ public class Servidor {
 			registryCli = LocateRegistry.createRegistry(rmiPortForClientes);
 			registrySv = LocateRegistry.createRegistry(rmiPortForWorkers);
 
-			remoteCliente = (IClienteAction) UnicastRemoteObject.exportObject(new ClienteAction(this.listaGateways, this.frameDivision),rmiPortForClientes);
-			remoteWorker = (IWorkerAction) UnicastRemoteObject.exportObject(new WorkerAction(this.listaGateways, this.singleServerDir),rmiPortForWorkers);
+			remoteCliente = (IClienteAction) UnicastRemoteObject.exportObject(new ClienteAction(this.listaGateways, this.frameDivision, this.log),rmiPortForClientes);
+			remoteWorker = (IWorkerAction) UnicastRemoteObject.exportObject(new WorkerAction(this.listaGateways, this.singleServerDir, this.log),rmiPortForWorkers);
 
 			registryCli.rebind("clienteAction", remoteCliente);
 			registrySv.rebind("workerAction", remoteWorker);
@@ -129,10 +130,10 @@ public class Servidor {
 		File appDir = new File(this.appDir);
 		File serverDir = new File(this.serverDirectory);
 		File singleServerFileDir = new File(this.serverDirectory + "/server9x5" + serverNumber);
-		DirectoryTools.checkOrCreateFolder(appDir.getAbsolutePath());
-		DirectoryTools.checkOrCreateFolder(serverDir.getAbsolutePath());
+		DirectoryTools.checkOrCreateFolder(appDir.getAbsolutePath(), ENodo.SERVIDOR.name());
+		DirectoryTools.checkOrCreateFolder(serverDir.getAbsolutePath(), ENodo.SERVIDOR.name());
 		this.singleServerDir = singleServerFileDir.getAbsolutePath();
-		DirectoryTools.checkOrCreateFolder(this.singleServerDir);
+		DirectoryTools.checkOrCreateFolder(this.singleServerDir, ENodo.SERVIDOR.name());
 	}
 
 	private void runRedisPubClient() {
@@ -147,7 +148,7 @@ public class Servidor {
 	private void helloGateway() {
 		try {
 			Thread.sleep(1000);
-			String uuid = connectRandomGatewayRMIForServidor(this.listaGateways).helloGatewayFromServidor(this.myPublicIp, this.rmiPortForClientes, this.rmiPortForWorkers);
+			String uuid = connectRandomGatewayRMIForServidor(this.listaGateways, this.log).helloGatewayFromServidor(this.myPublicIp, this.rmiPortForClientes, this.rmiPortForWorkers);
 			if(!uuid.isEmpty()){
 				log.info("Conectado a un Gateway. UUID Asignado: " + uuid);
 				this.uuid = uuid;

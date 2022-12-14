@@ -1,12 +1,12 @@
 package blender.distributed.Gateway.Servidor;
 
+import blender.distributed.Enums.ENodo;
 import blender.distributed.Records.RServidor;
 import com.google.gson.Gson;
 import io.github.cdimascio.dotenv.Dotenv;
 import io.lettuce.core.RedisClient;
 import io.lettuce.core.api.StatefulRedisConnection;
 import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
 
 import java.io.IOException;
@@ -20,7 +20,7 @@ import static blender.distributed.Gateway.GStorage.DownloadObjectIntoMemory.down
 import static blender.distributed.Gateway.GStorage.UploadObjectFromMemory.uploadObjectFromMemory;
 
 public class GatewayServidorAction implements IGatewayServidorAction {
-	Logger log = LoggerFactory.getLogger(GatewayServidorAction.class);
+	Logger log;
 	List<RServidor> listaServidores;
 	Gson gson = new Gson();
 	StatefulRedisConnection redisConnection;
@@ -30,10 +30,11 @@ public class GatewayServidorAction implements IGatewayServidorAction {
 	String partZipBucketName = dotenv.get("PART_ZIP_BUCKET_NAME");
 	String finalZipBucketName = dotenv.get("FINAL_ZIP_BUCKET_NAME");
 
-	public GatewayServidorAction(RedisClient redisPrivClient, List<RServidor> listaServidores) {
-		MDC.put("log.name", GatewayServidorAction.class.getSimpleName());
+	public GatewayServidorAction(RedisClient redisPrivClient, List<RServidor> listaServidores, Logger log) {
+		MDC.put("log.name", ENodo.GATEWAY.name());
 		this.listaServidores = listaServidores;
 		this.redisConnection = redisPrivClient.connect();
+		this.log = log;
 	}
 	@Override
 	public String helloGatewayFromServidor(String publicIp, int rmiPortForClientes, int rmiPortForWorkers) {

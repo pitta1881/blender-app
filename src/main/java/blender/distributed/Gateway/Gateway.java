@@ -1,5 +1,6 @@
 package blender.distributed.Gateway;
 
+import blender.distributed.Enums.ENodo;
 import blender.distributed.Gateway.Servidor.GatewayClienteAction;
 import blender.distributed.Gateway.Servidor.GatewayServidorAction;
 import blender.distributed.Gateway.Servidor.GatewayWorkerAction;
@@ -40,7 +41,7 @@ import static blender.distributed.SharedTools.Tools.getPublicIp;
 public class Gateway {
 	//General settings
 	Logger log = LoggerFactory.getLogger(this.getClass());
-	private String myPublicIp = getPublicIp();
+	private String myPublicIp = getPublicIp(this.log, ENodo.GATEWAY.name());
 	//RMI
 	private int rmiPortForClientes;
 	private int rmiPortForWorkers;
@@ -65,7 +66,7 @@ public class Gateway {
 	String uuid;
 	public Gateway(boolean flushDb) {
 		this.flushDb = flushDb;
-		MDC.put("log.name", this.getClass().getSimpleName());
+		MDC.put("log.name", ENodo.GATEWAY.name());
 		readConfigFile();
 		runRedisPrivClient();
 		runRMIGateway(this.rmiPortForClientes, this.rmiPortForWorkers, this.rmiPortForServidores);
@@ -76,19 +77,19 @@ public class Gateway {
 	}
 
 	private void createThreadRefreshListaServidores() {
-		RefreshListaServidoresThread listServT = new RefreshListaServidoresThread(this.listaServidores, this.redisPrivClient);
+		RefreshListaServidoresThread listServT = new RefreshListaServidoresThread(this.listaServidores, this.redisPrivClient, this.log);
 		Thread threadListaT = new Thread(listServT);
 		threadListaT.start();
 	}
 
 	private void createThreadRefreshListaWorkers() {
-		RefreshListaWorkersThread listaWorkersT = new RefreshListaWorkersThread(this.redisPrivClient);
+		RefreshListaWorkersThread listaWorkersT = new RefreshListaWorkersThread(this.redisPrivClient, this.log);
 		Thread threadAliveT = new Thread(listaWorkersT);
 		threadAliveT.start();
 	}
 
 	private void createThreadSendPingAlive() {
-		SendPingAliveThread aliveT = new SendPingAliveThread(this.redisPubClient, this.uuid, this.myPublicIp, this.rmiPortForClientes, this.rmiPortForWorkers, this.rmiPortForServidores);
+		SendPingAliveThread aliveT = new SendPingAliveThread(this.redisPubClient, this.uuid, this.myPublicIp, this.rmiPortForClientes, this.rmiPortForWorkers, this.rmiPortForServidores, this.log);
 		Thread threadAliveT = new Thread(aliveT);
 		threadAliveT.start();
 	}
@@ -102,9 +103,9 @@ public class Gateway {
 			registryWk = LocateRegistry.createRegistry(rmiPortForWorkers);
 			registrySv = LocateRegistry.createRegistry(rmiPortForServidores);
 
-			remoteCliente = (IClienteAction) UnicastRemoteObject.exportObject(new GatewayClienteAction(this.listaServidores),rmiPortForClientes);
-			remoteWorker = (IWorkerAction) UnicastRemoteObject.exportObject(new GatewayWorkerAction(this.listaServidores),rmiPortForWorkers);
-			remoteServidor = (IGatewayServidorAction) UnicastRemoteObject.exportObject(new GatewayServidorAction(this.redisPrivClient, this.listaServidores),rmiPortForServidores);
+			remoteCliente = (IClienteAction) UnicastRemoteObject.exportObject(new GatewayClienteAction(this.listaServidores, this.log),rmiPortForClientes);
+			remoteWorker = (IWorkerAction) UnicastRemoteObject.exportObject(new GatewayWorkerAction(this.listaServidores, this.log),rmiPortForWorkers);
+			remoteServidor = (IGatewayServidorAction) UnicastRemoteObject.exportObject(new GatewayServidorAction(this.redisPrivClient, this.listaServidores, this.log),rmiPortForServidores);
 
 			registryCli.rebind("clienteAction", remoteCliente);
 			registryWk.rebind("workerAction", remoteWorker);

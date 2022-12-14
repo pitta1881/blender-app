@@ -1,6 +1,7 @@
 package blender.distributed.Cliente;
 
 import blender.distributed.Cliente.Threads.CheckFinishedTrabajo;
+import blender.distributed.Enums.ENodo;
 import blender.distributed.Records.RGateway;
 import blender.distributed.Records.RTrabajo;
 import blender.distributed.SharedTools.RefreshListaGatewaysThread;
@@ -36,14 +37,14 @@ public class Cliente{
 	final int tries = 4;
 
 	public Cliente() {
+		MDC.put("log.name", ENodo.CLIENTE.name());
 		readConfigFile();
 		runRedisPubClient();
 		createThreadRefreshListaGateways();
-		MDC.put("log.name", Cliente.class.getSimpleName());
 	}
 
 	private void createThreadRefreshListaGateways() {
-		RefreshListaGatewaysThread listaGatewaysT = new RefreshListaGatewaysThread(this.listaGateways, this.redisPubClient);
+		RefreshListaGatewaysThread listaGatewaysT = new RefreshListaGatewaysThread(this.listaGateways, this.redisPubClient, this.log, ENodo.CLIENTE.name());
 		Thread threadAliveT = new Thread(listaGatewaysT);
 		threadAliveT.start();
 	}
@@ -69,7 +70,7 @@ public class Cliente{
 		if(this.file != null) {
 			log.info("Enviando el archivo: "+this.file.getName());
 			try {
-				String recordTrabajoJson = connectRandomGatewayRMI(this.listaGateways, this.tries).renderRequest(this.fileContent, file.getName(), startFrame, endFrame);
+				String recordTrabajoJson = connectRandomGatewayRMI(this.listaGateways, this.tries, this.log).renderRequest(this.fileContent, file.getName(), startFrame, endFrame);
 				RTrabajo recordTrabajo = new Gson().fromJson(recordTrabajoJson, RTrabajoType);
 				createThreadCheckFinishedTrabajo(recordTrabajo);
 			} catch (RemoteException e) {
@@ -89,7 +90,7 @@ public class Cliente{
 	}
 
 	private void createThreadCheckFinishedTrabajo(RTrabajo recordTrabajo) {
-		CheckFinishedTrabajo checkFinishedTrabajoT = new CheckFinishedTrabajo(this.listaGateways, recordTrabajo, this.tries);
+		CheckFinishedTrabajo checkFinishedTrabajoT = new CheckFinishedTrabajo(this.listaGateways, recordTrabajo, this.tries, this.log);
 		Thread threadListaT = new Thread(checkFinishedTrabajoT);
 		threadListaT.start();
 	}

@@ -1,10 +1,10 @@
-package blender.distributed.Gateway;
+package blender.distributed.Servidor;
 
 import blender.distributed.Enums.ENodo;
 import blender.distributed.Gateway.Servidor.IGatewayServidorAction;
 import blender.distributed.Records.RGateway;
 import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.slf4j.MDC;
 
 import java.rmi.NotBoundException;
 import java.rmi.RemoteException;
@@ -16,9 +16,9 @@ import java.util.Random;
 import static blender.distributed.SharedTools.Tools.manageGatewayServidorFall;
 
 public class Tools {
-    static Logger log = LoggerFactory.getLogger(Tools.class);
 
-    public static IGatewayServidorAction connectRandomGatewayRMIForServidor(List<RGateway> listaGateways) {
+    public static IGatewayServidorAction connectRandomGatewayRMIForServidor(List<RGateway> listaGateways, Logger log) {
+        MDC.put("log.name", ENodo.SERVIDOR.name());
         IGatewayServidorAction stubGateway = null;
         if(listaGateways.size() > 0) {
             Random rand = new Random();
@@ -31,8 +31,8 @@ public class Tools {
                 return stubGateway;
             } catch (RemoteException | NotBoundException e) {
                 log.error("Error: " + e.getMessage());
-                manageGatewayServidorFall(ENodo.GATEWAY, ip, port);
-                return connectRandomGatewayRMIForServidor(listaGateways);
+                manageGatewayServidorFall(ENodo.GATEWAY, ip, port, log, ENodo.SERVIDOR.name());
+                return connectRandomGatewayRMIForServidor(listaGateways, log);
             }
         } else {
             log.error("No hay ningun gateway disponible.");
@@ -40,7 +40,7 @@ public class Tools {
                 Thread.sleep(2000);
             } catch (InterruptedException e) {
             }
-            return connectRandomGatewayRMIForServidor(listaGateways);
+            return connectRandomGatewayRMIForServidor(listaGateways, log);
         }
     }
 }
