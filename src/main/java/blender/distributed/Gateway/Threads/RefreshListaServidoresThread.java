@@ -11,8 +11,7 @@ import org.slf4j.Logger;
 import org.slf4j.MDC;
 
 import java.lang.reflect.Type;
-import java.time.Duration;
-import java.time.LocalTime;
+import java.time.ZonedDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -46,12 +45,12 @@ public class RefreshListaServidoresThread implements Runnable {
             }
             synchronized (this.listaServidores) {
                 newListaServidores = gson.fromJson(String.valueOf(commands.hvals("listaServidores")), RListaServidorType);
-                listaServidoresToDelete = newListaServidores.stream().filter(servidor -> Duration.between(LocalTime.parse(servidor.lastPing()), LocalTime.now()).getSeconds() > 10).collect(Collectors.toList());
+                listaServidoresToDelete = newListaServidores.stream().filter(servidor -> ZonedDateTime.now().toInstant().toEpochMilli() - servidor.lastPing() > 10000).collect(Collectors.toList());
                 listaServidoresToDelete.stream().map(servToDelete -> servToDelete.uuid()).forEach(serv -> {
                     commands.hdel("listaServidores", serv);
                     log.info("Servidor " + serv + " eliminado por timeout. ");
                 });
-                newListaServidores = newListaServidores.stream().filter(servidor -> Duration.between(LocalTime.parse(servidor.lastPing()), LocalTime.now()).getSeconds() < 10).collect(Collectors.toList());
+                newListaServidores = newListaServidores.stream().filter(servidor -> ZonedDateTime.now().toInstant().toEpochMilli() - servidor.lastPing() < 10000).collect(Collectors.toList());
                 this.listaServidores.clear();
                 this.listaServidores.addAll(newListaServidores);
             }

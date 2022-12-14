@@ -11,7 +11,7 @@ import org.slf4j.MDC;
 
 import java.io.IOException;
 import java.rmi.RemoteException;
-import java.time.LocalTime;
+import java.time.ZonedDateTime;
 import java.util.List;
 import java.util.UUID;
 
@@ -39,14 +39,14 @@ public class GatewayServidorAction implements IGatewayServidorAction {
 	@Override
 	public String helloGatewayFromServidor(String publicIp, int rmiPortForClientes, int rmiPortForWorkers) {
 		String uuid = UUID.randomUUID().toString();
-		RServidor recordServidor = new RServidor(uuid, publicIp, rmiPortForClientes, rmiPortForWorkers, LocalTime.now().toString());
+		RServidor recordServidor = new RServidor(uuid, publicIp, rmiPortForClientes, rmiPortForWorkers, ZonedDateTime.now().toInstant().toEpochMilli());
 		redisConnection.sync().hset("listaServidores", uuid ,gson.toJson(recordServidor));
 		log.info("Registrado nuevo servidor: " + recordServidor);
 		return uuid;
 	}
 	@Override
 	public void pingAliveFromServidor(String uuidServidor, String publicIp, int rmiPortForClientes, int rmiPortForWorkers) {
-		RServidor recordServidor = new RServidor(uuidServidor, publicIp,rmiPortForClientes, rmiPortForWorkers, LocalTime.now().toString());
+		RServidor recordServidor = new RServidor(uuidServidor, publicIp,rmiPortForClientes, rmiPortForWorkers, ZonedDateTime.now().toInstant().toEpochMilli());
 		String json = gson.toJson(recordServidor);		
 		redisConnection.sync().hset("listaServidores", uuidServidor ,json);
 	}

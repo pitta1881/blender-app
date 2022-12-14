@@ -29,7 +29,7 @@ import java.rmi.RemoteException;
 import java.rmi.registry.LocateRegistry;
 import java.rmi.registry.Registry;
 import java.rmi.server.UnicastRemoteObject;
-import java.time.LocalTime;
+import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -156,7 +156,7 @@ public class Gateway {
 		RedisCommands commands = redisConnection.sync();
 		if(flushDb) commands.flushdb();
 		this.uuid = UUID.randomUUID().toString();
-		commands.hset("listaGateways", this.uuid, gson.toJson(new RGateway(this.uuid, this.myPublicIp, this.rmiPortForClientes, this.rmiPortForWorkers, this.rmiPortForServidores, LocalTime.now().toString())));
+		commands.hset("listaGateways", this.uuid, gson.toJson(new RGateway(this.uuid, this.myPublicIp, this.rmiPortForClientes, this.rmiPortForWorkers, this.rmiPortForServidores, ZonedDateTime.now().toInstant().toEpochMilli())));
 		log.info("Iniciando Gateway -> " + this.uuid);
 		redisConnection.close();
 	}

@@ -12,8 +12,7 @@ import io.lettuce.core.api.sync.RedisCommands;
 import org.slf4j.Logger;
 import org.slf4j.MDC;
 
-import java.time.Duration;
-import java.time.LocalTime;
+import java.time.ZonedDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -42,7 +41,7 @@ public class RefreshListaWorkersThread implements Runnable {
             }
             newListaWorkers = gson.fromJson(String.valueOf(commands.hvals("listaWorkers")), new TypeToken<List<RWorker>>() {
             }.getType());
-            listaWorkersToDelete = newListaWorkers.stream().filter(worker -> Duration.between(LocalTime.parse(worker.lastPing()), LocalTime.now()).getSeconds() > 10).collect(Collectors.toList());
+            listaWorkersToDelete = newListaWorkers.stream().filter(worker -> ZonedDateTime.now().toInstant().toEpochMilli() - worker.lastPing() > 10000).collect(Collectors.toList());
             listaWorkersToDelete.stream().map(workerToDelete -> {
                 if(workerToDelete.uuidParte() != null) {
                     RParte parteAsociada = gson.fromJson(String.valueOf(commands.hget("listaPartes", workerToDelete.uuidParte())), new TypeToken<RParte>() {

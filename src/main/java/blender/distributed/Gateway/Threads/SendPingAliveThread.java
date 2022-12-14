@@ -9,7 +9,7 @@ import io.lettuce.core.api.sync.RedisCommands;
 import org.slf4j.Logger;
 import org.slf4j.MDC;
 
-import java.time.LocalTime;
+import java.time.ZonedDateTime;
 
 
 public class SendPingAliveThread implements Runnable {
@@ -41,7 +41,7 @@ public class SendPingAliveThread implements Runnable {
         while(true) {
             try {
                 Thread.sleep(5000);
-                RGateway recordGateway = new RGateway(this.uuid, this.myPublicIp, this.rmiPortForClientes, this.rmiPortForWorkers, this.rmiPortForServidores, LocalTime.now().toString());
+                RGateway recordGateway = new RGateway(this.uuid, this.myPublicIp, this.rmiPortForClientes, this.rmiPortForWorkers, this.rmiPortForServidores, ZonedDateTime.now().toInstant().toEpochMilli());
                 String json = gson.toJson(recordGateway);
                 commands.hset("listaGateways", this.uuid ,json);
             } catch (InterruptedException e) {

@@ -1,4 +1,4 @@
 package blender.distributed.Records;
 
-public record RWorker(String workerName, String uuidParte, String lastPing) {
+public record RWorker(String workerName, String uuidParte, long lastPing) {
 }

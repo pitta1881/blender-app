@@ -9,20 +9,21 @@ import io.lettuce.core.api.StatefulRedisConnection;
 import io.lettuce.core.api.sync.RedisCommands;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.slf4j.MDC;
 
 import java.lang.reflect.Type;
-import java.time.Duration;
-import java.time.LocalTime;
+import java.time.ZonedDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
 
 public class CleanListaGateways {
-    Logger log = LoggerFactory.getLogger(CleanListaGateways.class);
+    Logger log = LoggerFactory.getLogger(this.getClass());
     Dotenv dotenv = Dotenv.load();
     RedisClient redisPubClient;
     Type RListaGatewayType = new TypeToken<List<RGateway>>(){}.getType();
 
     public CleanListaGateways(){
+        MDC.put("log.name", "CleanListaGateways");
         connectRedisPub();
         cleanListaGateway();
     }
@@ -40,17 +41,19 @@ public class CleanListaGateways {
         List<RGateway> newListaGateway;
         List<RGateway> listaGatewayToDelete;
         while(true) {
+            newListaGateway = gson.fromJson(String.valueOf(commands.hvals("listaGateways")), RListaGatewayType);
+            listaGatewayToDelete = newListaGateway.stream().filter(gateway ->
+                 ZonedDateTime.now().toInstant().toEpochMilli() - gateway.lastPing() > 10000
+            ).collect(Collectors.toList());
+            listaGatewayToDelete.stream().map(gatewToDelete -> gatewToDelete.uuid()).forEach(gatew -> {
+                commands.hdel("listaGateways", gatew);
+                log.info("Gateway " + gatew + " eliminado por timeout. ");
+            });
             try {
                 Thread.sleep(10000);
             } catch (InterruptedException e) {
                 log.error("Error: " + e.getMessage());
             }
-            newListaGateway = gson.fromJson(String.valueOf(commands.hvals("listaGateways")), RListaGatewayType);
-            listaGatewayToDelete = newListaGateway.stream().filter(gateway -> Duration.between(LocalTime.parse(gateway.lastPing()), LocalTime.now()).getSeconds() > 10).collect(Collectors.toList());
-            listaGatewayToDelete.stream().map(gatewToDelete -> gatewToDelete.uuid()).forEach(gatew -> {
-                commands.hdel("listaGateways", gatew);
-                log.info("Gateway " + gatew + " eliminado por timeout. ");
-            });
         }
     }
 

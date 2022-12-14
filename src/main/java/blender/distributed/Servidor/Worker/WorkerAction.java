@@ -16,7 +16,7 @@ import java.io.IOException;
 import java.lang.reflect.Type;
 import java.nio.file.Files;
 import java.rmi.RemoteException;
-import java.time.LocalTime;
+import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -44,9 +44,9 @@ public class WorkerAction implements IWorkerAction{
 			RWorker workerRecord = gson.fromJson(stringRecordWorker, RWorkerType);
 			if (workerRecord == null) {
 				log.info("Registrando nuevo worker: " + workerName);
-				workerRecord = new RWorker(workerName, null, LocalTime.now().toString());
+				workerRecord = new RWorker(workerName, null, ZonedDateTime.now().toInstant().toEpochMilli());
 			} else {
-				workerRecord = new RWorker(workerName, workerRecord.uuidParte(), LocalTime.now().toString());
+				workerRecord = new RWorker(workerName, workerRecord.uuidParte(), ZonedDateTime.now().toInstant().toEpochMilli());
 			}
 			connectRandomGatewayRMIForServidor(this.listaGateways, this.log).setWorker(workerName, gson.toJson(workerRecord));
 		} catch (RemoteException | NullPointerException e) {
@@ -72,7 +72,7 @@ public class WorkerAction implements IWorkerAction{
 			}
 			RParte recordParteUpdated = new RParte(recordParte.uuidTrabajo(), recordParte.uuid(),recordParte.startFrame(), recordParte.endFrame(), EStatus.IN_PROGRESS, null);
 			connectRandomGatewayRMIForServidor(this.listaGateways, this.log).setParte(recordParte.uuid(), gson.toJson(recordParteUpdated));
-			RWorker recordWorkerUpdated = new RWorker(workerName, recordParte.uuid(), LocalTime.now().toString());
+			RWorker recordWorkerUpdated = new RWorker(workerName, recordParte.uuid(), ZonedDateTime.now().toInstant().toEpochMilli());
 			connectRandomGatewayRMIForServidor(this.listaGateways, this.log).setWorker(workerName, gson.toJson(recordWorkerUpdated));
 
 			String recordTrabajoJson = connectRandomGatewayRMIForServidor(this.listaGateways, this.log).getTrabajo(recordParte.uuidTrabajo());
@@ -86,7 +86,7 @@ public class WorkerAction implements IWorkerAction{
 	@Override
 	public void setParteDone(String workerName, String uuidParte, byte[] zipParteWithRenderedImages) {
 		try {
-			connectRandomGatewayRMIForServidor(this.listaGateways, this.log).setWorker(workerName, gson.toJson(new RWorker(workerName, null, LocalTime.now().toString())));
+			connectRandomGatewayRMIForServidor(this.listaGateways, this.log).setWorker(workerName, gson.toJson(new RWorker(workerName, null, ZonedDateTime.now().toInstant().toEpochMilli())));
 			String recordParteJson = connectRandomGatewayRMIForServidor(this.listaGateways, this.log).getParte(uuidParte);
 			RParte recordParte = gson.fromJson(recordParteJson, RParteType);
 			if (recordParte != null) {
