@@ -6,6 +6,7 @@ import java.util.List;
 
 public interface IGatewayServidorAction extends Remote{
 	String helloGatewayFromServidor(String publicIp, int rmiPortForClientes, int rmiPortForWorkers) throws RemoteException;
+	void helloServerFromWorker(String workerName, String recordWorkerJson) throws RemoteException;
 	void pingAliveFromServidor(String uuidServidor, String publicIp, int rmiPortForClientes, int rmiPortForWorkers) throws RemoteException;
 	String getWorker(String workerName) throws RemoteException;
 	void setWorker(String workerName, String recordWorkerJson) throws RemoteException;

@@ -26,6 +26,15 @@ public class GatewayWorkerAction implements IWorkerAction {
 	}
 
 	@Override
+	public void helloServer(String workerName) {
+		try {
+			connectRandomServidorRMIForWorker().helloServer(workerName);
+		} catch (RemoteException | NullPointerException e) {
+			pingAlive(workerName);
+		}
+	}
+
+	@Override
 	public void pingAlive(String workerName) {
 		try {
 			connectRandomServidorRMIForWorker().pingAlive(workerName);

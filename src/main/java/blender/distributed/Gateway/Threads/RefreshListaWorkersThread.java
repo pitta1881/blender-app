@@ -48,10 +48,12 @@ public class RefreshListaWorkersThread implements Runnable {
                     }.getType());
                     RParte parteAsociadaUpdated = new RParte(parteAsociada.uuidTrabajo(), parteAsociada.uuid(), parteAsociada.startFrame(), parteAsociada.endFrame(), EStatus.TO_DO, null);
                     commands.hset("listaPartes", parteAsociada.uuid(), gson.toJson(parteAsociadaUpdated));
+                    log.info("Redis Priv.: hset listaPartes " + parteAsociada.uuid() + " " + parteAsociadaUpdated);
                 }
                 return workerToDelete.workerName();
             }).forEach(worker -> {
                 commands.hdel("listaWorkers", worker);
+                log.info("Redis Priv.: hdel listaWorkers " + worker);
                 log.info("Worker " + worker + " eliminado por timeout. ");
             });
         }

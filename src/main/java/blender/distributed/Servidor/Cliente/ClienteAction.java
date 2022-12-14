@@ -35,7 +35,7 @@ public class ClienteAction implements IClienteAction {
 		try {
 			connectRandomGatewayRMIForServidor(this.listaGateways, this.log).storeBlendFile(uuid+".blend", blendFile);
 			List<String> listaUUIDPartes = dividirEnPartes(uuid, startFrame, endFrame);
-			RTrabajo recordTrabajo = new RTrabajo(uuid, blendName, startFrame, endFrame, EStatus.TO_DO, listaUUIDPartes, uuid+".blend", null, LocalDateTime.now().toString());
+			RTrabajo recordTrabajo = new RTrabajo(uuid, blendName, startFrame, endFrame, EStatus.TO_DO, listaUUIDPartes, uuid+".blend", null, LocalDateTime.now().toString(), null);
 			String json = gson.toJson(recordTrabajo);
 			connectRandomGatewayRMIForServidor(this.listaGateways, this.log).setTrabajo(uuid, json);
 			log.info("Registrando nuevo trabajo: " + recordTrabajo);

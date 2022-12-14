@@ -47,6 +47,7 @@ public class CleanListaGateways {
             ).collect(Collectors.toList());
             listaGatewayToDelete.stream().map(gatewToDelete -> gatewToDelete.uuid()).forEach(gatew -> {
                 commands.hdel("listaGateways", gatew);
+                log.info("Redis Pub.: hdel listaGateways " + gatew);
                 log.info("Gateway " + gatew + " eliminado por timeout. ");
             });
             try {

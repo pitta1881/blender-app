@@ -71,10 +71,20 @@ public class Worker {
 		runRedisPubClient();
 		if (checkNeededFiles()) {
 			createThreadRefreshListaGateways();
+			helloServer();
 			createThreadSendPingAlive();
 			getWork();
 		} else {
 			log.debug("Error inesperado!");
+		}
+	}
+
+	private void helloServer() {
+		try {
+			connectRandomGatewayRMI(this.listaGateways, this.log).helloServer(this.workerName);
+		} catch (RemoteException e) {
+			log.error("Error: " + e.getMessage());
+			helloServer();
 		}
 	}
 

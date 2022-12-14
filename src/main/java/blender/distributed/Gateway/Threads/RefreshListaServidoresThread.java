@@ -48,6 +48,7 @@ public class RefreshListaServidoresThread implements Runnable {
                 listaServidoresToDelete = newListaServidores.stream().filter(servidor -> ZonedDateTime.now().toInstant().toEpochMilli() - servidor.lastPing() > 10000).collect(Collectors.toList());
                 listaServidoresToDelete.stream().map(servToDelete -> servToDelete.uuid()).forEach(serv -> {
                     commands.hdel("listaServidores", serv);
+                    log.info("Redis Priv.: hdel listaServidores " + serv);
                     log.info("Servidor " + serv + " eliminado por timeout. ");
                 });
                 newListaServidores = newListaServidores.stream().filter(servidor -> ZonedDateTime.now().toInstant().toEpochMilli() - servidor.lastPing() < 10000).collect(Collectors.toList());

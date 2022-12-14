@@ -40,15 +40,25 @@ public class GatewayServidorAction implements IGatewayServidorAction {
 	public String helloGatewayFromServidor(String publicIp, int rmiPortForClientes, int rmiPortForWorkers) {
 		String uuid = UUID.randomUUID().toString();
 		RServidor recordServidor = new RServidor(uuid, publicIp, rmiPortForClientes, rmiPortForWorkers, ZonedDateTime.now().toInstant().toEpochMilli());
-		redisConnection.sync().hset("listaServidores", uuid ,gson.toJson(recordServidor));
+		String json = gson.toJson(recordServidor);
+		redisConnection.sync().hset("listaServidores", uuid ,json);
+		log.info("Redis Priv.: hset listaServidores " + uuid + " " + json);
 		log.info("Registrado nuevo servidor: " + recordServidor);
 		return uuid;
 	}
+
+	@Override
+	public void helloServerFromWorker(String workerName, String recordWorkerJson) {
+		redisConnection.sync().hset("listaWorkers", workerName, recordWorkerJson);
+		log.info("Redis Priv.: hset listaWorkers " + workerName + " " + recordWorkerJson);
+	}
+
 	@Override
 	public void pingAliveFromServidor(String uuidServidor, String publicIp, int rmiPortForClientes, int rmiPortForWorkers) {
 		RServidor recordServidor = new RServidor(uuidServidor, publicIp,rmiPortForClientes, rmiPortForWorkers, ZonedDateTime.now().toInstant().toEpochMilli());
 		String json = gson.toJson(recordServidor);		
 		redisConnection.sync().hset("listaServidores", uuidServidor ,json);
+		//log.info("Redis Priv.: hset listaServidores " + uuidServidor + " " + recordServidor);	//too much flood
 	}
 	@Override
 	public String getWorker(String workerName) {
@@ -58,6 +68,7 @@ public class GatewayServidorAction implements IGatewayServidorAction {
 	@Override
 	public void setWorker(String workerName, String recordWorkerJson) {
 		redisConnection.sync().hset("listaWorkers", workerName, recordWorkerJson);
+		//log.info("Redis Priv.: hset listaWorkers " + workerName + " " + recordWorkerJson);	 //too much flood
 	}
 
 	@Override
@@ -67,10 +78,12 @@ public class GatewayServidorAction implements IGatewayServidorAction {
 	@Override
 	public void setTrabajo(String uuidTrabajo, String recordTrabajoJson) {
 		redisConnection.sync().hset("listaTrabajos", uuidTrabajo, recordTrabajoJson);
+		log.info("Redis Priv.: hset listaTrabajos " + uuidTrabajo + " " + recordTrabajoJson);
 	}
 	@Override
 	public void delTrabajo(String uuidTrabajo) {
 		redisConnection.sync().hdel("listaTrabajos", uuidTrabajo);
+		log.info("Redis Priv.: hdel listaTrabajos " + uuidTrabajo);
 	}
 	@Override
 	public String getParte(String uuidParte) {
@@ -83,15 +96,18 @@ public class GatewayServidorAction implements IGatewayServidorAction {
 	@Override
 	public void setParte(String uuidParte, String recordParteJson) {
 		redisConnection.sync().hset("listaPartes", uuidParte, recordParteJson);
+		log.info("Redis Priv.: hset listaPartes " + uuidParte + " " + recordParteJson);
 	}
 	@Override
 	public void delParte(String uuidParte) {
 		redisConnection.sync().hdel("listaPartes", uuidParte);
+		log.info("Redis Priv.: hdel listaPartes " + uuidParte);
 	}
 	@Override
 	public void storeBlendFile(String gStorageBlendName, byte[] blendFile) {
 		try {
 			uploadObjectFromMemory(this.projectId, this.blendBucketName, gStorageBlendName, blendFile);
+			log.info("GCS: store to " + this.blendBucketName + " " + gStorageBlendName);
 		} catch (IOException e) {
 			log.error("Error: " + e.getMessage());
 		}
@@ -99,7 +115,9 @@ public class GatewayServidorAction implements IGatewayServidorAction {
 	@Override
 	public byte[] getBlendFile(String gStorageBlendName) {
 		try {
-			return downloadObjectIntoMemory(this.projectId, this.blendBucketName, gStorageBlendName);
+			byte[] temp = downloadObjectIntoMemory(this.projectId, this.blendBucketName, gStorageBlendName);
+			log.info("GCS: download from " + this.blendBucketName + " " + gStorageBlendName);
+			return temp;
 		} catch (IOException e) {
 			throw new RuntimeException(e);
 		}
@@ -108,6 +126,7 @@ public class GatewayServidorAction implements IGatewayServidorAction {
 	public void deleteBlendFile(String gStorageBlendName) throws RemoteException {
 		try {
 			deleteObject(this.projectId, this.blendBucketName, gStorageBlendName);
+			log.info("GCS: delete from " + this.blendBucketName + " " + gStorageBlendName);
 		} catch (IOException e) {
 			throw new RuntimeException(e);
 		}
@@ -116,6 +135,7 @@ public class GatewayServidorAction implements IGatewayServidorAction {
 	public void storePartZipFile(String gStorageZipName, byte[] zipFile) {
 		try {
 			uploadObjectFromMemory(this.projectId, this.partZipBucketName, gStorageZipName, zipFile);
+			log.info("GCS: store to " + this.partZipBucketName + " " + gStorageZipName);
 		} catch (IOException e) {
 			throw new RuntimeException(e);
 		}
@@ -123,7 +143,9 @@ public class GatewayServidorAction implements IGatewayServidorAction {
 	@Override
 	public byte[] getPartZipFile(String gStorageZipName) {
 		try {
-			return downloadObjectIntoMemory(this.projectId, this.partZipBucketName, gStorageZipName);
+			byte[] temp = downloadObjectIntoMemory(this.projectId, this.partZipBucketName, gStorageZipName);
+			log.info("GCS: download from " + this.partZipBucketName + " " + gStorageZipName);
+			return temp;
 		} catch (IOException e) {
 			throw new RuntimeException(e);
 		}
@@ -132,6 +154,7 @@ public class GatewayServidorAction implements IGatewayServidorAction {
 	public void deletePartZipFile(String gStorageZipName) throws RemoteException {
 		try {
 			deleteObject(this.projectId, this.partZipBucketName, gStorageZipName);
+			log.info("GCS: delete from " + this.partZipBucketName + " " + gStorageZipName);
 		} catch (IOException e) {
 			log.error("Error: " + e.getMessage());
 		}
@@ -140,6 +163,7 @@ public class GatewayServidorAction implements IGatewayServidorAction {
 	public void storeFinalZipFile(String gStorageZipName, byte[] zipFile) {
 		try {
 			uploadObjectFromMemory(this.projectId, this.finalZipBucketName, gStorageZipName, zipFile);
+			log.info("GCS: store to " + this.finalZipBucketName + " " + gStorageZipName);
 		} catch (IOException e) {
 			log.error("Error: " + e.getMessage());
 		}

@@ -16,6 +16,7 @@ import java.io.IOException;
 import java.lang.reflect.Type;
 import java.nio.file.Files;
 import java.rmi.RemoteException;
+import java.time.LocalDateTime;
 import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -35,6 +36,12 @@ public class WorkerAction implements IWorkerAction{
 		this.singleServerDir = singleServerDir;
 		this.listaGateways = listaGateways;
 		this.log = log;
+	}
+
+	@Override
+	public void helloServer(String workerName) throws RemoteException {
+		RWorker workerRecord = new RWorker(workerName, null, ZonedDateTime.now().toInstant().toEpochMilli());
+		connectRandomGatewayRMIForServidor(this.listaGateways, this.log).helloServerFromWorker(workerName, gson.toJson(workerRecord));
 	}
 
 	@Override
@@ -137,9 +144,10 @@ public class WorkerAction implements IWorkerAction{
 						}
 					}
 					connectRandomGatewayRMIForServidor(this.listaGateways, this.log).storeFinalZipFile(recordTrabajo.uuid()+".zip", zipTrabajoWithRenderedImages);
-					connectRandomGatewayRMIForServidor(this.listaGateways, this.log).setTrabajo(recordTrabajo.uuid(), gson.toJson(new RTrabajo(recordTrabajo.uuid(), recordTrabajo.blendName(), recordTrabajo.startFrame(), recordTrabajo.endFrame(), EStatus.DONE, recordTrabajo.listaPartes(), recordTrabajo.gStorageBlendName(), recordTrabajo.uuid()+".zip", recordTrabajo.createdAt())));
-					connectRandomGatewayRMIForServidor(this.listaGateways, this.log).deleteBlendFile(recordTrabajo.gStorageBlendName());
-					recordTrabajo.listaPartes().forEach(parte -> {
+					RTrabajo recordTrabajoUpdated = new RTrabajo(recordTrabajo.uuid(), recordTrabajo.blendName(), recordTrabajo.startFrame(), recordTrabajo.endFrame(), EStatus.DONE, recordTrabajo.listaPartes(), recordTrabajo.gStorageBlendName(), recordTrabajo.uuid()+".zip", recordTrabajo.createdAt(), LocalDateTime.now().toString());
+					connectRandomGatewayRMIForServidor(this.listaGateways, this.log).setTrabajo(recordTrabajoUpdated.uuid(), gson.toJson(recordTrabajoUpdated));
+					connectRandomGatewayRMIForServidor(this.listaGateways, this.log).deleteBlendFile(recordTrabajoUpdated.gStorageBlendName());
+					recordTrabajoUpdated.listaPartes().forEach(parte -> {
 						try {
 							connectRandomGatewayRMIForServidor(this.listaGateways, this.log).deletePartZipFile(parte+".zip");
 							connectRandomGatewayRMIForServidor(this.listaGateways, this.log).delParte(parte);
@@ -149,6 +157,7 @@ public class WorkerAction implements IWorkerAction{
 					});
 					File workDirFile = new File(thisWorkDir);
 					DirectoryTools.deleteDirectory(workDirFile);
+					log.info("Trabajo terminado: " + recordTrabajoUpdated);
 				}
 			}
 		} catch (RemoteException | NullPointerException e) {

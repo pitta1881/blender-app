@@ -44,6 +44,7 @@ public class SendPingAliveThread implements Runnable {
                 RGateway recordGateway = new RGateway(this.uuid, this.myPublicIp, this.rmiPortForClientes, this.rmiPortForWorkers, this.rmiPortForServidores, ZonedDateTime.now().toInstant().toEpochMilli());
                 String json = gson.toJson(recordGateway);
                 commands.hset("listaGateways", this.uuid ,json);
+                //log.info("Redis Pub.: hset listaGateways " + this.uuid + " " + recordGateway); // too much flood
             } catch (InterruptedException e) {
                 log.error("Error: " + e.getMessage());;
             }
