@@ -2,7 +2,7 @@ package blender.distributed.SharedTools;
 
 import blender.distributed.Enums.ENodo;
 import org.slf4j.Logger;
-import org.slf4j.MDC;
+
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -11,8 +11,7 @@ import java.net.URL;
 
 public class Tools {
 
-    public static void manageGatewayServidorFall(ENodo nodo, String ip, int port, Logger log, String logName){
-        MDC.put("log.name", logName);
+    public static void manageGatewayServidorFall(ENodo nodo, String ip, int port, Logger log){
         log.error("Error al conectar con el " + nodo + " " + ip + ":" + port);
         try {
             log.info("Reintentando con el próximo " + nodo + " ...");
@@ -21,8 +20,7 @@ public class Tools {
         }
     }
 
-    public static String getPublicIp(Logger log, String logName) {
-        MDC.put("log.name", logName);
+    public static String getPublicIp(Logger log) {
         URL whatismyip = null;
         String ip = null;
         try {

@@ -1,7 +1,6 @@
 package blender.distributed.Cliente;
 
 import blender.distributed.Cliente.Threads.CheckFinishedTrabajo;
-import blender.distributed.Enums.ENodo;
 import blender.distributed.Records.RGateway;
 import blender.distributed.Records.RTrabajo;
 import blender.distributed.SharedTools.RefreshListaGatewaysThread;
@@ -13,7 +12,7 @@ import io.lettuce.core.api.StatefulRedisConnection;
 import io.lettuce.core.api.sync.RedisCommands;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.slf4j.MDC;
+
 
 import javax.swing.JOptionPane;
 import java.io.File;
@@ -26,7 +25,7 @@ import java.util.List;
 import static blender.distributed.Cliente.Tools.connectRandomGatewayRMI;
 
 public class Cliente{
-	Logger log = LoggerFactory.getLogger(this.getClass());
+	private static final Logger log = LoggerFactory.getLogger(Cliente.class);
 	File file;
 	byte[] fileContent;
 	List<RGateway> listaGateways;
@@ -37,14 +36,13 @@ public class Cliente{
 	final int tries = 4;
 
 	public Cliente() {
-		MDC.put("log.name", ENodo.CLIENTE.name());
 		readConfigFile();
 		runRedisPubClient();
 		createThreadRefreshListaGateways();
 	}
 
 	private void createThreadRefreshListaGateways() {
-		RefreshListaGatewaysThread listaGatewaysT = new RefreshListaGatewaysThread(this.listaGateways, this.redisPubClient, this.log, ENodo.CLIENTE.name());
+		RefreshListaGatewaysThread listaGatewaysT = new RefreshListaGatewaysThread(this.listaGateways, this.redisPubClient, this.log);
 		Thread threadAliveT = new Thread(listaGatewaysT);
 		threadAliveT.start();
 	}

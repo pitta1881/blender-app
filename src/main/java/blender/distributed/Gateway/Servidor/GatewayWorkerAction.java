@@ -4,7 +4,7 @@ import blender.distributed.Enums.ENodo;
 import blender.distributed.Records.RServidor;
 import blender.distributed.Servidor.Worker.IWorkerAction;
 import org.slf4j.Logger;
-import org.slf4j.MDC;
+
 
 import java.rmi.NotBoundException;
 import java.rmi.RemoteException;
@@ -20,7 +20,6 @@ public class GatewayWorkerAction implements IWorkerAction {
 	List<RServidor> listaServidores;
 
 	public GatewayWorkerAction(List<RServidor> listaServidores, Logger log) {
-		MDC.put("log.name", ENodo.GATEWAY.name());
 		this.listaServidores = listaServidores;
 		this.log = log;
 	}
@@ -83,7 +82,7 @@ public class GatewayWorkerAction implements IWorkerAction {
 				return stubServidor;
 			} catch (RemoteException | NotBoundException e) {
 				log.error("Error: " + e.getMessage());
-				manageGatewayServidorFall(ENodo.SERVIDOR, ip, port, this.log, ENodo.GATEWAY.name());
+				manageGatewayServidorFall(ENodo.SERVIDOR, ip, port, this.log);
 				return connectRandomServidorRMIForWorker();
 			}
 		} else {

@@ -1,6 +1,5 @@
 package blender.distributed.Servidor;
 
-import blender.distributed.Enums.ENodo;
 import blender.distributed.Records.RGateway;
 import blender.distributed.Servidor.Cliente.ClienteAction;
 import blender.distributed.Servidor.Cliente.IClienteAction;
@@ -18,7 +17,7 @@ import io.lettuce.core.api.sync.RedisCommands;
 import org.apache.commons.io.IOUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.slf4j.MDC;
+
 
 import java.io.File;
 import java.io.IOException;
@@ -35,11 +34,11 @@ import static blender.distributed.SharedTools.Tools.getPublicIp;
 
 public class Servidor {
 	//General settings
-	Logger log = LoggerFactory.getLogger(this.getClass());
+	private static final Logger log = LoggerFactory.getLogger(Servidor.class);
 	String appDir = System.getProperty("user.dir") + "/app/";
 	String serverDirectory = appDir + "Servidor/";
 	String singleServerDir;
-	private String myPublicIp = getPublicIp(this.log, ENodo.SERVIDOR.name());
+	private String myPublicIp = getPublicIp(this.log);
 
 	//RMI
 	private int rmiPortForClientes;
@@ -58,7 +57,6 @@ public class Servidor {
 
 
 	public Servidor() {
-		MDC.put("log.name", ENodo.SERVIDOR.name());
 		readConfigFile();
 		runRedisPubClient();
 		runRMIServer(this.rmiPortForClientes, this.rmiPortForWorkers);
@@ -73,7 +71,7 @@ public class Servidor {
 		threadAliveT.start();
 	}
 	private void createThreadRefreshListaGateways() {
-		RefreshListaGatewaysThread listaGatewaysT = new RefreshListaGatewaysThread(this.listaGateways, this.redisPubClient, this.log, ENodo.SERVIDOR.name());
+		RefreshListaGatewaysThread listaGatewaysT = new RefreshListaGatewaysThread(this.listaGateways, this.redisPubClient, this.log);
 		Thread threadAliveT = new Thread(listaGatewaysT);
 		threadAliveT.start();
 	}
@@ -130,10 +128,10 @@ public class Servidor {
 		File appDir = new File(this.appDir);
 		File serverDir = new File(this.serverDirectory);
 		File singleServerFileDir = new File(this.serverDirectory + "/server9x5" + serverNumber);
-		DirectoryTools.checkOrCreateFolder(appDir.getAbsolutePath(), ENodo.SERVIDOR.name());
-		DirectoryTools.checkOrCreateFolder(serverDir.getAbsolutePath(), ENodo.SERVIDOR.name());
+		DirectoryTools.checkOrCreateFolder(appDir.getAbsolutePath(), this.log);
+		DirectoryTools.checkOrCreateFolder(serverDir.getAbsolutePath(), this.log);
 		this.singleServerDir = singleServerFileDir.getAbsolutePath();
-		DirectoryTools.checkOrCreateFolder(this.singleServerDir, ENodo.SERVIDOR.name());
+		DirectoryTools.checkOrCreateFolder(this.singleServerDir, this.log);
 	}
 
 	private void runRedisPubClient() {

@@ -1,6 +1,5 @@
 package blender.distributed.Worker;
 
-import blender.distributed.Enums.ENodo;
 import blender.distributed.Records.RGateway;
 import blender.distributed.Records.RTrabajoParte;
 import blender.distributed.SharedTools.DirectoryTools;
@@ -20,7 +19,7 @@ import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.SystemUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.slf4j.MDC;
+
 
 import java.io.File;
 import java.io.FileOutputStream;
@@ -43,7 +42,7 @@ import static blender.distributed.Worker.Tools.connectRandomGatewayRMI;
 
 public class Worker {
 	//General
-	Logger log = LoggerFactory.getLogger(this.getClass());
+	private static final Logger log = LoggerFactory.getLogger(Worker.class);
 	String blenderPortable;
 	String appDir = System.getProperty("user.dir") + "/app/";
 	String workerDir = appDir + "Worker/";
@@ -66,7 +65,6 @@ public class Worker {
 	Dotenv dotenv = Dotenv.load();
 
 	public Worker () {
-		MDC.put("log.name", ENodo.WORKER.name());
 		readConfigFile();
 		runRedisPubClient();
 		if (checkNeededFiles()) {
@@ -94,7 +92,7 @@ public class Worker {
 		threadAliveT.start();
 	}
 	private void createThreadRefreshListaGateways() {
-		RefreshListaGatewaysThread listaGatewaysT = new RefreshListaGatewaysThread(this.listaGateways, this.redisPubClient, this.log, ENodo.WORKER.name());
+		RefreshListaGatewaysThread listaGatewaysT = new RefreshListaGatewaysThread(this.listaGateways, this.redisPubClient, this.log);
 		Thread threadAliveT = new Thread(listaGatewaysT);
 		threadAliveT.start();
 	}
@@ -115,11 +113,11 @@ public class Worker {
 			}
 			recordTrabajoParte = gson.fromJson(recordTrabajoParteJson, RTrabajoParteType);
 			File thisWorkDir = new File(this.singleWorkerDir + this.worksDir + recordTrabajoParte.rParte().uuid());
-			DirectoryTools.checkOrCreateFolder(thisWorkDir.getAbsolutePath(), ENodo.WORKER.name());
+			DirectoryTools.checkOrCreateFolder(thisWorkDir.getAbsolutePath(), this.log);
 			File thisWorkRenderDir = new File(thisWorkDir + this.rendersDir);
-			DirectoryTools.checkOrCreateFolder(thisWorkRenderDir.getAbsolutePath(), ENodo.WORKER.name());
+			DirectoryTools.checkOrCreateFolder(thisWorkRenderDir.getAbsolutePath(), this.log);
 			File thisWorkBlendDir = new File(thisWorkDir + this.blendDir);
-			DirectoryTools.checkOrCreateFolder(thisWorkBlendDir.getAbsolutePath(), ENodo.WORKER.name());
+			DirectoryTools.checkOrCreateFolder(thisWorkBlendDir.getAbsolutePath(), this.log);
 			log.info("==========Trabajo Iniciado=========");
 			log.info("Recibi un nuevo trabajo: " + recordTrabajoParte.rParte().uuid());
 			byte[] blendFileBytes = new byte[0];
@@ -244,11 +242,11 @@ public class Worker {
 		File appDir = new File(this.appDir);
 		File workerDir = new File(this.workerDir);
 		File singleWorkerDir = new File(this.singleWorkerDir);
-		DirectoryTools.checkOrCreateFolder(appDir.getAbsolutePath(), ENodo.WORKER.name());
-		DirectoryTools.checkOrCreateFolder(workerDir.getAbsolutePath(), ENodo.WORKER.name());
+		DirectoryTools.checkOrCreateFolder(appDir.getAbsolutePath(), this.log);
+		DirectoryTools.checkOrCreateFolder(workerDir.getAbsolutePath(), this.log);
 		long sizeWorkerDir = DirectoryTools.getFolderSize(workerDir);
 		if (sizeWorkerDir < 30000000) {
-			DirectoryTools.checkOrCreateFolder(singleWorkerDir.getAbsolutePath(), ENodo.WORKER.name());
+			DirectoryTools.checkOrCreateFolder(singleWorkerDir.getAbsolutePath(), this.log);
 			long sizeSingleWorkerDir = DirectoryTools.getFolderSize(singleWorkerDir);
 			log.info("Obteniendo tamanio de: " + singleWorkerDir.getAbsolutePath() + " MB:" + (sizeSingleWorkerDir / 1024));
 			if (sizeSingleWorkerDir < 30000000) {
@@ -260,7 +258,7 @@ public class Worker {
 			log.info("Directorio Detectado -> " + this.workerName);
 			this.singleWorkerDir = workerDir + "/" + this.workerName + "/";
 		}
-		DirectoryTools.checkOrCreateFolder(this.singleWorkerDir + this.worksDir, ENodo.WORKER.name());
+		DirectoryTools.checkOrCreateFolder(this.singleWorkerDir + this.worksDir, this.log);
 		log.info("Iniciado Worker -> " + this.workerName);
 		log.info("Blender ----> LISTO");
 		return true;

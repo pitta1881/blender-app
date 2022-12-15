@@ -4,7 +4,7 @@ import blender.distributed.Enums.ENodo;
 import blender.distributed.Records.RGateway;
 import blender.distributed.Servidor.Worker.IWorkerAction;
 import org.slf4j.Logger;
-import org.slf4j.MDC;
+
 
 import java.rmi.NotBoundException;
 import java.rmi.RemoteException;
@@ -18,7 +18,6 @@ import static blender.distributed.SharedTools.Tools.manageGatewayServidorFall;
 public class Tools {
 
     public static IWorkerAction connectRandomGatewayRMI(List<RGateway> listaGateways, Logger log) {
-        MDC.put("log.name", ENodo.WORKER.name());
         IWorkerAction stubGateway = null;
         if(listaGateways.size() > 0) {
             Random rand = new Random();
@@ -30,7 +29,7 @@ public class Tools {
                 stubGateway = (IWorkerAction) workerRMI.lookup("workerAction");
                 return stubGateway;
             } catch (RemoteException | NotBoundException e) {
-                manageGatewayServidorFall(ENodo.GATEWAY,ip, port, log, ENodo.WORKER.name());
+                manageGatewayServidorFall(ENodo.GATEWAY,ip, port, log);
                 return connectRandomGatewayRMI(listaGateways, log);
             }
         } else {

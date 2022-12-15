@@ -1,6 +1,5 @@
 package blender.distributed.Gateway.Threads;
 
-import blender.distributed.Enums.ENodo;
 import blender.distributed.Records.RServidor;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
@@ -8,7 +7,7 @@ import io.lettuce.core.RedisClient;
 import io.lettuce.core.api.StatefulRedisConnection;
 import io.lettuce.core.api.sync.RedisCommands;
 import org.slf4j.Logger;
-import org.slf4j.MDC;
+
 
 import java.lang.reflect.Type;
 import java.time.ZonedDateTime;
@@ -23,7 +22,6 @@ public class RefreshListaServidoresThread implements Runnable {
     Type RListaServidorType = new TypeToken<List<RServidor>>(){}.getType();
 
     public RefreshListaServidoresThread(List<RServidor> listaServidores, RedisClient redisPrivClient, Logger log) {
-        MDC.put("log.name", ENodo.GATEWAY.name());
         this.listaServidores = listaServidores;
         this.redisPrivClient = redisPrivClient;
         this.log = log;
@@ -31,7 +29,6 @@ public class RefreshListaServidoresThread implements Runnable {
 
     @Override
     public void run() {
-        MDC.put("log.name", ENodo.GATEWAY.name());
         StatefulRedisConnection redisConnection = redisPrivClient.connect();
         RedisCommands commands = redisConnection.sync();
         Gson gson = new Gson();

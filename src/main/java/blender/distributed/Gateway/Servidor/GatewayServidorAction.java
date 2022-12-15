@@ -1,13 +1,12 @@
 package blender.distributed.Gateway.Servidor;
 
-import blender.distributed.Enums.ENodo;
 import blender.distributed.Records.RServidor;
 import com.google.gson.Gson;
 import io.github.cdimascio.dotenv.Dotenv;
 import io.lettuce.core.RedisClient;
 import io.lettuce.core.api.StatefulRedisConnection;
 import org.slf4j.Logger;
-import org.slf4j.MDC;
+
 
 import java.io.IOException;
 import java.rmi.RemoteException;
@@ -31,7 +30,6 @@ public class GatewayServidorAction implements IGatewayServidorAction {
 	String finalZipBucketName = dotenv.get("FINAL_ZIP_BUCKET_NAME");
 
 	public GatewayServidorAction(RedisClient redisPrivClient, List<RServidor> listaServidores, Logger log) {
-		MDC.put("log.name", ENodo.GATEWAY.name());
 		this.listaServidores = listaServidores;
 		this.redisConnection = redisPrivClient.connect();
 		this.log = log;

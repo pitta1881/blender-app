@@ -1,13 +1,12 @@
 package blender.distributed.Servidor.Cliente;
 
-import blender.distributed.Enums.ENodo;
 import blender.distributed.Enums.EStatus;
 import blender.distributed.Records.RGateway;
 import blender.distributed.Records.RParte;
 import blender.distributed.Records.RTrabajo;
 import com.google.gson.Gson;
 import org.slf4j.Logger;
-import org.slf4j.MDC;
+
 
 import java.rmi.RemoteException;
 import java.time.LocalDateTime;
@@ -24,7 +23,6 @@ public class ClienteAction implements IClienteAction {
 	Gson gson = new Gson();
 
 	public ClienteAction(List<RGateway> listaGateways, int frameDivision, Logger log) {
-		MDC.put("log.name", ENodo.SERVIDOR.name());
 		this.listaGateways = listaGateways;
 		this.frameDivision = frameDivision;
 		this.log = log;

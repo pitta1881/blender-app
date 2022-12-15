@@ -1,8 +1,7 @@
 package blender.distributed.Worker.Threads;
 
-import blender.distributed.Enums.ENodo;
 import org.slf4j.Logger;
-import org.slf4j.MDC;
+
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -15,7 +14,6 @@ public class WorkerProcessThread implements Runnable{
 	private final CountDownLatch latchSignal;
 
 	public WorkerProcessThread(CountDownLatch latch, String cmd, Logger log) {
-		MDC.put("log.name", ENodo.WORKER.name());
 		this.latchSignal = latch;
 		this.cmd = cmd;
 		this.log = log;
@@ -23,7 +21,6 @@ public class WorkerProcessThread implements Runnable{
 	
 	@Override
 	public void run() {
-		MDC.put("log.name", ENodo.WORKER.name());
 		ejecutar(this.cmd);
 	}
 

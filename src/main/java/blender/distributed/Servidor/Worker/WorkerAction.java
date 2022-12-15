@@ -1,6 +1,5 @@
 package blender.distributed.Servidor.Worker;
 
-import blender.distributed.Enums.ENodo;
 import blender.distributed.Enums.EStatus;
 import blender.distributed.Records.*;
 import blender.distributed.SharedTools.DirectoryTools;
@@ -8,7 +7,7 @@ import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
 import net.lingala.zip4j.ZipFile;
 import org.slf4j.Logger;
-import org.slf4j.MDC;
+
 
 import java.io.File;
 import java.io.FileOutputStream;
@@ -32,7 +31,6 @@ public class WorkerAction implements IWorkerAction{
 	Type RWorkerType = new TypeToken<RWorker>(){}.getType();
 	Type RParteType = new TypeToken<RParte>(){}.getType();
 	public WorkerAction(List<RGateway> listaGateways, String singleServerDir, Logger log) {
-		MDC.put("log.name", ENodo.SERVIDOR.name());
 		this.singleServerDir = singleServerDir;
 		this.listaGateways = listaGateways;
 		this.log = log;
@@ -116,8 +114,8 @@ public class WorkerAction implements IWorkerAction{
 				if (trabajoTerminado) {
 					String workDir = this.singleServerDir + "/Works/";
 					String thisWorkDir = this.singleServerDir + "/Works/" + recordTrabajo.uuid() + "/";
-					DirectoryTools.checkOrCreateFolder(workDir, ENodo.SERVIDOR.name());
-					DirectoryTools.checkOrCreateFolder(thisWorkDir, ENodo.SERVIDOR.name());
+					DirectoryTools.checkOrCreateFolder(workDir, this.log);
+					DirectoryTools.checkOrCreateFolder(thisWorkDir, this.log);
 
 					byte[] zipTrabajoWithRenderedImages = new byte[0];
 					if(recordTrabajo.listaPartes().size() == 1){

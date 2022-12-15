@@ -1,34 +1,57 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<configuration>
-
-    <!--  DEFINE CONSOLE OUT PARAMETERS -->
-  <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
-    <encoder>
-      <pattern>%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level - %msg%n</pattern>
-    </encoder>
-  </appender>
-
-
-    <appender name="SIFT" class="ch.qos.logback.classic.sift.SiftingAppender">
-        <discriminator>
-            <key>log.name</key>
-            <defaultValue>unknown</defaultValue>
-        </discriminator>
-        <sift>
-        	<!-- FILE -->
-            <appender name="FILE-${userid}" class="ch.qos.logback.core.FileAppender">
-                <file>./logs/${log.name}.log</file>
-                <layout class="ch.qos.logback.classic.PatternLayout">
-                    <pattern>%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level - %msg%n</pattern>
-                </layout>
-            </appender>
-        </sift>
+<configuration debug="false" scan="false">
+    <property name="logPattern" value="%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level - %msg%n"/>
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>${logPattern}</pattern>
+        </encoder>
     </appender>
-
+    <appender name="CLEANGATEWAYS" class="ch.qos.logback.core.FileAppender">
+        <file>./logs/CLEANGATEWAYS.log</file>
+        <encoder>
+            <pattern>${logPattern}</pattern>
+        </encoder>
+    </appender>
+    <appender name="GATEWAY" class="ch.qos.logback.core.FileAppender">
+        <file>./logs/GATEWAY.log</file>
+        <encoder>
+            <pattern>${logPattern}</pattern>
+        </encoder>
+    </appender>
+    <appender name="SERVIDOR" class="ch.qos.logback.core.FileAppender">
+        <file>./logs/SERVIDOR.log</file>
+        <encoder>
+            <pattern>${logPattern}</pattern>
+        </encoder>
+    </appender>
+    <appender name="WORKER" class="ch.qos.logback.core.FileAppender">
+        <file>./logs/WORKER.log</file>
+        <encoder>
+            <pattern>${logPattern}</pattern>
+        </encoder>
+    </appender>
+    <appender name="CLIENTE" class="ch.qos.logback.core.FileAppender">
+        <file>./logs/CLIENTE.log</file>
+        <encoder>
+            <pattern>${logPattern}</pattern>
+        </encoder>
+    </appender>
+    <logger name="blender.distributed.CleanListaGateways" level="info">
+        <appender-ref ref="CLEANGATEWAYS"/>
+    </logger>
+    <logger name="blender.distributed.Gateway" level="info">
+        <appender-ref ref="GATEWAY"/>
+    </logger>
+    <logger name="blender.distributed.Servidor" level="info">
+        <appender-ref ref="SERVIDOR"/>
+    </logger>
+    <logger name="blender.distributed.Worker" level="info">
+        <appender-ref ref="WORKER"/>
+    </logger>
+    <logger name="blender.distributed.Cliente" level="info">
+        <appender-ref ref="CLIENTE"/>
+    </logger>
     <root level="info">
-        <appender-ref ref="SIFT" />
-        <appender-ref ref="STDOUT" />
+        <appender-ref ref="CONSOLE"/>
     </root>
-
-
 </configuration>

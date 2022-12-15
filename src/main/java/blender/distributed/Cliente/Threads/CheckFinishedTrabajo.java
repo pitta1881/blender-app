@@ -1,6 +1,5 @@
 package blender.distributed.Cliente.Threads;
 
-import blender.distributed.Enums.ENodo;
 import blender.distributed.Enums.EStatus;
 import blender.distributed.Records.RGateway;
 import blender.distributed.Records.RTrabajo;
@@ -8,7 +7,7 @@ import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
 import io.github.cdimascio.dotenv.Dotenv;
 import org.slf4j.Logger;
-import org.slf4j.MDC;
+
 
 
 import javax.swing.JFrame;
@@ -44,7 +43,6 @@ public class CheckFinishedTrabajo implements Runnable{
     int tries;
 
     public CheckFinishedTrabajo(List<RGateway> listaGateways, RTrabajo recordTrabajo, int tries, Logger log){
-        MDC.put("log.name", ENodo.CLIENTE.name());
         this.listaGateways = listaGateways;
         this.recordTrabajo = recordTrabajo;
         this.tries = tries;
@@ -53,7 +51,6 @@ public class CheckFinishedTrabajo implements Runnable{
 
     @Override
     public void run() {
-        MDC.put("log.name", ENodo.CLIENTE.name());
         boolean salir = false;
         LocalTime initTime = LocalTime.now();
         log.info("Trabajo enviado: " + this.recordTrabajo.toString());

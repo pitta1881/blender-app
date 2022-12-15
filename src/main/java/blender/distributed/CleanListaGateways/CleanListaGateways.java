@@ -1,4 +1,4 @@
-package blender.distributed;
+package blender.distributed.CleanListaGateways;
 
 import blender.distributed.Records.RGateway;
 import com.google.gson.Gson;
@@ -9,21 +9,30 @@ import io.lettuce.core.api.StatefulRedisConnection;
 import io.lettuce.core.api.sync.RedisCommands;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.slf4j.MDC;
+
 
 import java.lang.reflect.Type;
 import java.time.ZonedDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
+import ch.qos.logback.core.FileAppender;
 
 public class CleanListaGateways {
-    Logger log = LoggerFactory.getLogger(this.getClass());
+    private final static Logger log = LoggerFactory.getLogger(CleanListaGateways.class);
     Dotenv dotenv = Dotenv.load();
     RedisClient redisPubClient;
     Type RListaGatewayType = new TypeToken<List<RGateway>>(){}.getType();
 
+    /*
+     * This block prevents the Maven Shade plugin to remove the specified classes
+     */
+    static {
+        @SuppressWarnings ("unused") Class<?>[] classes = new Class<?>[] {
+                FileAppender.class
+        };
+    }
+
     public CleanListaGateways(){
-        MDC.put("log.name", "CleanListaGateways");
         connectRedisPub();
         cleanListaGateway();
     }

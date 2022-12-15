@@ -1,6 +1,5 @@
 package blender.distributed.Gateway;
 
-import blender.distributed.Enums.ENodo;
 import blender.distributed.Gateway.Servidor.GatewayClienteAction;
 import blender.distributed.Gateway.Servidor.GatewayServidorAction;
 import blender.distributed.Gateway.Servidor.GatewayWorkerAction;
@@ -20,7 +19,7 @@ import io.lettuce.core.api.sync.RedisCommands;
 import org.apache.commons.io.IOUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.slf4j.MDC;
+
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -40,8 +39,8 @@ import static blender.distributed.SharedTools.Tools.getPublicIp;
 
 public class Gateway {
 	//General settings
-	Logger log = LoggerFactory.getLogger(this.getClass());
-	private String myPublicIp = getPublicIp(this.log, ENodo.GATEWAY.name());
+	private static final Logger log = LoggerFactory.getLogger(Gateway.class);
+	private String myPublicIp = getPublicIp(this.log);
 	//RMI
 	private int rmiPortForClientes;
 	private int rmiPortForWorkers;
@@ -66,7 +65,6 @@ public class Gateway {
 	String uuid;
 	public Gateway(boolean flushDb) {
 		this.flushDb = flushDb;
-		MDC.put("log.name", ENodo.GATEWAY.name());
 		readConfigFile();
 		runRedisPrivClient();
 		runRMIGateway(this.rmiPortForClientes, this.rmiPortForWorkers, this.rmiPortForServidores);

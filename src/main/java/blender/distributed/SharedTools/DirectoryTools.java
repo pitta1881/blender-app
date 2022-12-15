@@ -2,11 +2,10 @@ package blender.distributed.SharedTools;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.slf4j.MDC;
+
 
 import java.io.File;
 public class DirectoryTools {
-	static Logger log = LoggerFactory.getLogger(DirectoryTools.class);
 
 	public static long getFolderSize(File folder) {
 	    long length = 0;
@@ -25,8 +24,7 @@ public class DirectoryTools {
 	    return length;
 	}
 
-	public static boolean checkOrCreateFolder(String path, String logName){
-		MDC.put("log.name", logName);
+	public static boolean checkOrCreateFolder(String path, Logger log){
 		File fFolder = new File(path);
 		if(!fFolder.isDirectory()){
 			fFolder.mkdir();

@@ -4,7 +4,7 @@ import blender.distributed.Enums.ENodo;
 import blender.distributed.Records.RServidor;
 import blender.distributed.Servidor.Cliente.IClienteAction;
 import org.slf4j.Logger;
-import org.slf4j.MDC;
+
 
 import java.rmi.NotBoundException;
 import java.rmi.RemoteException;
@@ -19,7 +19,6 @@ public class GatewayClienteAction implements IClienteAction {
 	Logger log;
 	List<RServidor> listaServidores;
 	public GatewayClienteAction(List<RServidor> listaServidores, Logger log) {
-		MDC.put("log.name", ENodo.GATEWAY.name());
 		this.listaServidores = listaServidores;
 		this.log = log;
 	}
@@ -55,7 +54,7 @@ public class GatewayClienteAction implements IClienteAction {
 				return stubServidor;
 			} catch (RemoteException | NotBoundException e) {
 				log.error("Error: " + e.getMessage());
-				manageGatewayServidorFall(ENodo.SERVIDOR, ip, port, this.log, ENodo.GATEWAY.name());
+				manageGatewayServidorFall(ENodo.SERVIDOR, ip, port, this.log);
 				return connectRandomServidorRMIForCliente();
 			}
 		} else {
