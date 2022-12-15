@@ -40,6 +40,7 @@ public class WorkerAction implements IWorkerAction{
 	public void helloServer(String workerName) throws RemoteException {
 		RWorker workerRecord = new RWorker(workerName, null, ZonedDateTime.now().toInstant().toEpochMilli());
 		connectRandomGatewayRMIForServidor(this.listaGateways, this.log).helloServerFromWorker(workerName, gson.toJson(workerRecord));
+		log.info("Registrando nuevo worker: " + workerName);
 	}
 
 	@Override
