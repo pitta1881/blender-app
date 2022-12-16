@@ -1,6 +1,6 @@
-package blender.distributed.Gateway.GStorage;
+package blender.distributed.gateway.GStorage;
 
-import blender.distributed.Gateway.Gateway;
+import blender.distributed.gateway.Gateway;
 import com.google.auth.Credentials;
 import com.google.auth.oauth2.GoogleCredentials;
 import com.google.cloud.storage.Blob;

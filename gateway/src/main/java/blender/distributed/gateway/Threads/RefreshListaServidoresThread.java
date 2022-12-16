@@ -1,6 +1,6 @@
-package blender.distributed.Gateway.Threads;
+package blender.distributed.gateway.Threads;
 
-import blender.distributed.Records.RServidor;
+import blender.distributed.shared.Records.RServidor;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
 import io.lettuce.core.RedisClient;

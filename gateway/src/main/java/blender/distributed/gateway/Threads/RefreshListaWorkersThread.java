@@ -1,8 +1,8 @@
-package blender.distributed.Gateway.Threads;
+package blender.distributed.gateway.Threads;
 
-import blender.distributed.Enums.EStatus;
-import blender.distributed.Records.RParte;
-import blender.distributed.Records.RWorker;
+import blender.distributed.shared.Enums.EStatus;
+import blender.distributed.shared.Records.RParte;
+import blender.distributed.shared.Records.RWorker;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
 import io.lettuce.core.RedisClient;

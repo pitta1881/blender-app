@@ -1,13 +1,14 @@
 package blender.distributed.servidor;
 
-import blender.distributed.Records.RGateway;
-import blender.distributed.Servidor.Cliente.ClienteAction;
-import blender.distributed.Servidor.Cliente.IClienteAction;
-import blender.distributed.Servidor.Threads.SendPingAliveThread;
-import blender.distributed.Servidor.Worker.IWorkerAction;
-import blender.distributed.Servidor.Worker.WorkerAction;
-import blender.distributed.SharedTools.DirectoryTools;
-import blender.distributed.SharedTools.RefreshListaGatewaysThread;
+import blender.distributed.servidor.Cliente.ClienteAction;
+import blender.distributed.servidor.Threads.SendPingAliveThread;
+import blender.distributed.servidor.Worker.WorkerAction;
+import blender.distributed.shared.DirectoryTools;
+import blender.distributed.shared.Interfaces.IClienteAction;
+import blender.distributed.shared.Interfaces.IWorkerAction;
+import blender.distributed.shared.Records.RGateway;
+import blender.distributed.shared.RefreshListaGatewaysThread;
+import ch.qos.logback.core.FileAppender;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
 import io.github.cdimascio.dotenv.Dotenv;
@@ -29,8 +30,9 @@ import java.rmi.server.UnicastRemoteObject;
 import java.util.List;
 import java.util.Map;
 
-import static blender.distributed.Servidor.Tools.connectRandomGatewayRMIForServidor;
-import static blender.distributed.SharedTools.Tools.getPublicIp;
+import static blender.distributed.servidor.Tools.connectRandomGatewayRMIForServidor;
+import static blender.distributed.shared.Tools.getPublicIp;
+
 
 public class Servidor {
 	//General settings
@@ -55,7 +57,14 @@ public class Servidor {
 	Dotenv dotenv = Dotenv.load();
 	int frameDivision;
 
-
+	/*
+	 * This block prevents the Maven Shade plugin to remove the specified classes
+	 */
+	static {
+		@SuppressWarnings ("unused") Class<?>[] classes = new Class<?>[] {
+				FileAppender.class
+		};
+	}
 	public Servidor() {
 		readConfigFile();
 		runRedisPubClient();

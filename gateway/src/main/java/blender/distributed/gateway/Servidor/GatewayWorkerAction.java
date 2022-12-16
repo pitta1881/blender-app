@@ -1,8 +1,8 @@
-package blender.distributed.Gateway.Servidor;
+package blender.distributed.gateway.Servidor;
 
-import blender.distributed.Enums.ENodo;
-import blender.distributed.Records.RServidor;
-import blender.distributed.Servidor.Worker.IWorkerAction;
+import blender.distributed.shared.Enums.ENodo;
+import blender.distributed.shared.Interfaces.IWorkerAction;
+import blender.distributed.shared.Records.RServidor;
 import org.slf4j.Logger;
 
 
@@ -13,7 +13,8 @@ import java.rmi.registry.Registry;
 import java.util.List;
 import java.util.Random;
 
-import static blender.distributed.SharedTools.Tools.manageGatewayServidorFall;
+import static blender.distributed.shared.Tools.manageGatewayServidorFall;
+
 
 public class GatewayWorkerAction implements IWorkerAction {
 	Logger log;

@@ -1,13 +1,14 @@
-package Threads;
+package blender.distributed.worker.Threads;
 
-import blender.distributed.Records.RGateway;
+import blender.distributed.shared.Records.RGateway;
 import org.slf4j.Logger;
 
 
 import java.rmi.RemoteException;
 import java.util.List;
 
-import static blender.distributed.Worker.Tools.connectRandomGatewayRMI;
+import static blender.distributed.worker.Tools.connectRandomGatewayRMI;
+
 
 public class SendPingAliveThread implements Runnable{
 	Logger log;

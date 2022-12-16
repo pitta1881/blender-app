@@ -1,4 +1,4 @@
-package blender.distributed.cliente;
+package blender.distributed.shared.Interfaces;
 
 import java.rmi.Remote;
 import java.rmi.RemoteException;

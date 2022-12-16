@@ -1,10 +1,10 @@
-package blender.distributed.gateway.Servidor;
+package blender.distributed.shared.Interfaces;
 
 import java.rmi.Remote;
 import java.rmi.RemoteException;
 import java.util.List;
-
 public interface IGatewayServidorAction extends Remote{
+
 	String helloGatewayFromServidor(String publicIp, int rmiPortForClientes, int rmiPortForWorkers) throws RemoteException;
 	void helloServerFromWorker(String workerName, String recordWorkerJson) throws RemoteException;
 	void pingAliveFromServidor(String uuidServidor, String publicIp, int rmiPortForClientes, int rmiPortForWorkers) throws RemoteException;

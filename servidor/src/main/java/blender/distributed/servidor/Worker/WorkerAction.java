@@ -1,8 +1,9 @@
 package blender.distributed.servidor.Worker;
 
-import blender.distributed.Enums.EStatus;
-import blender.distributed.Records.*;
-import blender.distributed.SharedTools.DirectoryTools;
+import blender.distributed.shared.DirectoryTools;
+import blender.distributed.shared.Enums.EStatus;
+import blender.distributed.shared.Interfaces.IWorkerAction;
+import blender.distributed.shared.Records.*;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
 import net.lingala.zip4j.ZipFile;
@@ -20,9 +21,10 @@ import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
-import static blender.distributed.Servidor.Tools.connectRandomGatewayRMIForServidor;
+import static blender.distributed.servidor.Tools.connectRandomGatewayRMIForServidor;
 
-public class WorkerAction implements IWorkerAction{
+
+public class WorkerAction implements IWorkerAction {
 	Logger log;
 	String singleServerDir;
 	List<RGateway> listaGateways;

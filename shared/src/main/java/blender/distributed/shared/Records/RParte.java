@@ -1,6 +1,7 @@
-package blender.distributed.worker.SharedTools.Records;
+package blender.distributed.shared.Records;
 
-import blender.distributed.worker.SharedTools.Enums.EStatus;
+
+import blender.distributed.shared.Enums.EStatus;
 
 public record RParte(String uuidTrabajo, String uuid, int startFrame, int endFrame, EStatus estado, String gStorageZipName) {
 }

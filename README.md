@@ -59,9 +59,9 @@ La propuesta consiste en crear una red distribuida de renderizado de imágenes a
 ## Ejecución de la aplicación
 
 1. Run Gateway (Múltiples).
-2. Run Servidor (Múltiples).
-3. Run Worker (Múltiples).
-4. Run Cliente (Múltiples).
+2. Run blender.distributed.servidor.Servidor (Múltiples).
+3. Run blender.distributed.worker.blender.distributed.servidor.Worker (Múltiples).
+4. Run blender.distributed.servidor.Cliente (Múltiples).
 
 ## Notas
 

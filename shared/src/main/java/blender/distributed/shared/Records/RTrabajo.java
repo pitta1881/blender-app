@@ -1,6 +1,7 @@
-package blender.distributed.worker.SharedTools.Records;
+package blender.distributed.shared.Records;
 
-import blender.distributed.worker.SharedTools.Enums.EStatus;
+
+import blender.distributed.shared.Enums.EStatus;
 
 import java.util.List;
 

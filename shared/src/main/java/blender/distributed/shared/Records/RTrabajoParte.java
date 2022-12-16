@@ -1,4 +1,4 @@
-package blender.distributed.worker.SharedTools.Records;
+package blender.distributed.shared.Records;
 
 public record RTrabajoParte(RTrabajo rTrabajo, RParte rParte) {
 }

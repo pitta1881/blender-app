@@ -1,16 +1,17 @@
-package blender.distributed.Gateway;
+package blender.distributed.gateway;
 
-import blender.distributed.Gateway.Servidor.GatewayClienteAction;
-import blender.distributed.Gateway.Servidor.GatewayServidorAction;
-import blender.distributed.Gateway.Servidor.GatewayWorkerAction;
-import blender.distributed.Gateway.Servidor.IGatewayServidorAction;
-import blender.distributed.Gateway.Threads.RefreshListaServidoresThread;
-import blender.distributed.Gateway.Threads.RefreshListaWorkersThread;
-import blender.distributed.Records.RGateway;
-import blender.distributed.Records.RServidor;
-import blender.distributed.Servidor.Cliente.IClienteAction;
-import blender.distributed.Gateway.Threads.SendPingAliveThread;
-import blender.distributed.Servidor.Worker.IWorkerAction;
+import blender.distributed.gateway.Servidor.GatewayClienteAction;
+import blender.distributed.gateway.Servidor.GatewayServidorAction;
+import blender.distributed.gateway.Servidor.GatewayWorkerAction;
+import blender.distributed.gateway.Threads.RefreshListaServidoresThread;
+import blender.distributed.gateway.Threads.RefreshListaWorkersThread;
+import blender.distributed.gateway.Threads.SendPingAliveThread;
+import blender.distributed.shared.Interfaces.IClienteAction;
+import blender.distributed.shared.Interfaces.IGatewayServidorAction;
+import blender.distributed.shared.Interfaces.IWorkerAction;
+import blender.distributed.shared.Records.RGateway;
+import blender.distributed.shared.Records.RServidor;
+import ch.qos.logback.core.FileAppender;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
 import io.lettuce.core.RedisClient;
@@ -35,7 +36,8 @@ import java.util.Map;
 import java.util.UUID;
 import io.github.cdimascio.dotenv.Dotenv;
 
-import static blender.distributed.SharedTools.Tools.getPublicIp;
+import static blender.distributed.shared.Tools.getPublicIp;
+
 
 public class Gateway {
 	//General settings
@@ -63,6 +65,14 @@ public class Gateway {
 	Gson gson = new Gson();
 	Type RListaServidorType = new TypeToken<List<RServidor>>(){}.getType();
 	String uuid;
+	/*
+	 * This block prevents the Maven Shade plugin to remove the specified classes
+	 */
+	static {
+		@SuppressWarnings ("unused") Class<?>[] classes = new Class<?>[] {
+				FileAppender.class
+		};
+	}
 	public Gateway(boolean flushDb) {
 		this.flushDb = flushDb;
 		readConfigFile();

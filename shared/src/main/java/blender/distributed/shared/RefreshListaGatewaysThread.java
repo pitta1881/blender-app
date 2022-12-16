@@ -1,6 +1,6 @@
-package blender.distributed.worker.SharedTools;
+package blender.distributed.shared;
 
-import blender.distributed.worker.SharedTools.Records.RGateway;
+import blender.distributed.shared.Records.RGateway;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
 import io.lettuce.core.RedisClient;

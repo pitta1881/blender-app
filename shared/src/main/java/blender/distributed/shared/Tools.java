@@ -1,6 +1,6 @@
-package blender.distributed.worker.SharedTools;
+package blender.distributed.shared;
 
-import blender.distributed.worker.SharedTools.Enums.ENodo;
+import blender.distributed.shared.Enums.ENodo;
 import org.slf4j.Logger;
 
 import java.io.BufferedReader;

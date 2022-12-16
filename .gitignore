@@ -11,7 +11,7 @@
 # BlueJ files
 *.ctxt
 
-# Mobile Tools for Java (J2ME)
+# Mobile blender.distributed.worker.blender.distributed.servidor.Tools for Java (J2ME)
 .mtj.tmp/
 
 # IntelliJ
@@ -69,7 +69,7 @@ buildNumber.properties
 # Eclipse m2e generated files
 # Eclipse Core
 .project
-# JDT-specific (Eclipse Java Development Tools)
+# JDT-specific (Eclipse Java Development blender.distributed.worker.blender.distributed.servidor.Tools)
 .classpath
 
 ### Windows ###

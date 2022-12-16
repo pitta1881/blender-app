@@ -1,10 +1,9 @@
-package blender.distributed.servidor;
+package blender.distributed.cliente;
 
 import blender.distributed.shared.Enums.ENodo;
-import blender.distributed.shared.Interfaces.IGatewayServidorAction;
+import blender.distributed.shared.Interfaces.IClienteAction;
 import blender.distributed.shared.Records.RGateway;
 import org.slf4j.Logger;
-
 
 import java.rmi.NotBoundException;
 import java.rmi.RemoteException;
@@ -15,24 +14,24 @@ import java.util.Random;
 
 import static blender.distributed.shared.Tools.manageGatewayServidorFall;
 
-
 public class Tools {
 
-    public static IGatewayServidorAction connectRandomGatewayRMIForServidor(List<RGateway> listaGateways, Logger log) {
-        IGatewayServidorAction stubGateway = null;
+    public static IClienteAction connectRandomGatewayRMI(List<RGateway> listaGateways, int tries, Logger log) throws RemoteException {
+        tries--;
+        if(tries <= 0) throw new RemoteException("Ningun gateway responde o no hay ninguno disponible.");
+        IClienteAction stubGateway = null;
         if(listaGateways.size() > 0) {
             Random rand = new Random();
             int nRandomGateway = rand.nextInt(listaGateways.size());
             String ip = listaGateways.get(nRandomGateway).ip();
-            int port = listaGateways.get(nRandomGateway).rmiPortForServidores();
+            int port = listaGateways.get(nRandomGateway).rmiPortForClientes();
             try {
-                Registry servidorRMI = LocateRegistry.getRegistry(ip, port);
-                stubGateway = (IGatewayServidorAction) servidorRMI.lookup("servidorAction");
+                Registry clienteRMI = LocateRegistry.getRegistry(ip, port);
+                stubGateway = (IClienteAction) clienteRMI.lookup("clienteAction");
                 return stubGateway;
             } catch (RemoteException | NotBoundException e) {
-                log.error("Error: " + e.getMessage());
-                manageGatewayServidorFall(ENodo.GATEWAY, ip, port, log);
-                return connectRandomGatewayRMIForServidor(listaGateways, log);
+                manageGatewayServidorFall(ENodo.GATEWAY,ip, port, log);
+                return connectRandomGatewayRMI(listaGateways, tries, log);
             }
         } else {
             log.error("No hay ningun gateway disponible.");
@@ -40,7 +39,7 @@ public class Tools {
                 Thread.sleep(2000);
             } catch (InterruptedException e) {
             }
-            return connectRandomGatewayRMIForServidor(listaGateways, log);
+            return connectRandomGatewayRMI(listaGateways, tries, log);
         }
     }
 }

@@ -1,9 +1,12 @@
-import blender.distributed.Records.RGateway;
-import blender.distributed.Records.RTrabajoParte;
-import blender.distributed.SharedTools.DirectoryTools;
-import blender.distributed.SharedTools.RefreshListaGatewaysThread;
-import blender.distributed.Worker.Threads.SendPingAliveThread;
-import blender.distributed.Worker.Threads.WorkerProcessThread;
+package blender.distributed.worker;
+
+import blender.distributed.shared.DirectoryTools;
+import blender.distributed.shared.Records.RGateway;
+import blender.distributed.shared.Records.RTrabajoParte;
+import blender.distributed.shared.RefreshListaGatewaysThread;
+import blender.distributed.worker.Threads.SendPingAliveThread;
+import blender.distributed.worker.Threads.WorkerProcessThread;
+import ch.qos.logback.core.FileAppender;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
 import io.github.cdimascio.dotenv.Dotenv;
@@ -35,7 +38,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 
-import static blender.distributed.Worker.Tools.connectRandomGatewayRMI;
+import static blender.distributed.worker.Tools.connectRandomGatewayRMI;
 
 
 public class Worker {
@@ -62,6 +65,14 @@ public class Worker {
 	Type RTrabajoParteType = new TypeToken<RTrabajoParte>(){}.getType();
 	Dotenv dotenv = Dotenv.load();
 
+	/*
+	 * This block prevents the Maven Shade plugin to remove the specified classes
+	 */
+	static {
+		@SuppressWarnings ("unused") Class<?>[] classes = new Class<?>[] {
+				FileAppender.class
+		};
+	}
 	public Worker () {
 		readConfigFile();
 		runRedisPubClient();
@@ -168,7 +179,7 @@ public class Worker {
 				threadsNedeed = 2;
 			}
 			log.info("Cantidad de Frames a renderizar: " + (totalFrames + 1));
-			log.info("Cantidad de Threads a crear: " + threadsNedeed);
+			log.info("Cantidad de blender.distributed.servidor.Threads a crear: " + threadsNedeed);
 			int rangeFrame = (int) Math.ceil((float)totalFrames / (float)threadsNedeed);
 			int startFrame = recordTrabajoParte.rParte().startFrame();
 			int endFrame = startFrame + rangeFrame;
@@ -212,7 +223,7 @@ public class Worker {
 					connectRandomGatewayRMI(this.listaGateways, this.log).setParteDone(this.workerName, recordTrabajoParte.rParte().uuid(), zipWithRenderedImages);
 					zipSent = true;
 				} catch (IOException e) {
-					log.error("Conexión perdida con el Servidor.");
+					log.error("Conexión perdida con el blender.distributed.servidor.Servidor.");
 				}
 			}
 		} catch (Exception e) {

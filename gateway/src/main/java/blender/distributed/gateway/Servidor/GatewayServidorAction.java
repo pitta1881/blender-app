@@ -1,6 +1,7 @@
-package blender.distributed.Gateway.Servidor;
+package blender.distributed.gateway.Servidor;
 
-import blender.distributed.Records.RServidor;
+import blender.distributed.shared.Interfaces.IGatewayServidorAction;
+import blender.distributed.shared.Records.RServidor;
 import com.google.gson.Gson;
 import io.github.cdimascio.dotenv.Dotenv;
 import io.lettuce.core.RedisClient;
@@ -14,9 +15,10 @@ import java.time.ZonedDateTime;
 import java.util.List;
 import java.util.UUID;
 
-import static blender.distributed.Gateway.GStorage.DeleteObject.deleteObject;
-import static blender.distributed.Gateway.GStorage.DownloadObjectIntoMemory.downloadObjectIntoMemory;
-import static blender.distributed.Gateway.GStorage.UploadObjectFromMemory.uploadObjectFromMemory;
+import static blender.distributed.gateway.GStorage.DeleteObject.deleteObject;
+import static blender.distributed.gateway.GStorage.DownloadObjectIntoMemory.downloadObjectIntoMemory;
+import static blender.distributed.gateway.GStorage.UploadObjectFromMemory.uploadObjectFromMemory;
+
 
 public class GatewayServidorAction implements IGatewayServidorAction {
 	Logger log;

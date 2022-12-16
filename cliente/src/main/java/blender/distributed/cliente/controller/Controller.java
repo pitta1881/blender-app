@@ -1,7 +1,6 @@
 package blender.distributed.cliente.controller;
 
-
-import blender.distributed.Cliente.Cliente;
+import blender.distributed.cliente.Cliente;
 
 import java.io.File;
 

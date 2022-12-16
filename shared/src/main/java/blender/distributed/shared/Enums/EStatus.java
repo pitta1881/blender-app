@@ -1,4 +1,4 @@
-package blender.distributed.worker.SharedTools.Enums;
+package blender.distributed.shared.Enums;
 
 public enum EStatus {
     TO_DO,

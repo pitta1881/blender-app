@@ -1,9 +1,10 @@
 package blender.distributed.servidor.Cliente;
 
-import blender.distributed.Enums.EStatus;
-import blender.distributed.Records.RGateway;
-import blender.distributed.Records.RParte;
-import blender.distributed.Records.RTrabajo;
+import blender.distributed.shared.Enums.EStatus;
+import blender.distributed.shared.Interfaces.IClienteAction;
+import blender.distributed.shared.Records.RGateway;
+import blender.distributed.shared.Records.RParte;
+import blender.distributed.shared.Records.RTrabajo;
 import com.google.gson.Gson;
 import org.slf4j.Logger;
 
@@ -14,7 +15,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
-import static blender.distributed.Servidor.Tools.connectRandomGatewayRMIForServidor;
+import static blender.distributed.servidor.Tools.connectRandomGatewayRMIForServidor;
+
 
 public class ClienteAction implements IClienteAction {
 	Logger log;

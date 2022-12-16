@@ -1,4 +1,4 @@
-package Threads;
+package blender.distributed.worker.Threads;
 
 import org.slf4j.Logger;
 
