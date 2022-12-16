@@ -34,11 +34,13 @@ public class Cliente{
 	Type RTrabajoType = new TypeToken<RTrabajo>(){}.getType();
 	Dotenv dotenv = Dotenv.load();
 	final int tries = 4;
+	List<RTrabajo> listaTrabajos;
 
-	public Cliente() {
+	public Cliente(List<RTrabajo> listaTrabajos) {
 		readConfigFile();
 		runRedisPubClient();
 		createThreadRefreshListaGateways();
+		this.listaTrabajos = listaTrabajos;
 	}
 
 	private void createThreadRefreshListaGateways() {
@@ -70,6 +72,9 @@ public class Cliente{
 			try {
 				String recordTrabajoJson = connectRandomGatewayRMI(this.listaGateways, this.tries, this.log).renderRequest(this.fileContent, file.getName(), startFrame, endFrame);
 				RTrabajo recordTrabajo = new Gson().fromJson(recordTrabajoJson, RTrabajoType);
+				synchronized (this.listaTrabajos){
+					this.listaTrabajos.add(recordTrabajo);
+				}
 				createThreadCheckFinishedTrabajo(recordTrabajo);
 			} catch (RemoteException e) {
 				JOptionPane.showMessageDialog(null,"Error al enviar el archivo. Intentelo nuevamente en unos instantes.", "Error", JOptionPane.ERROR_MESSAGE);
@@ -88,7 +93,7 @@ public class Cliente{
 	}
 
 	private void createThreadCheckFinishedTrabajo(RTrabajo recordTrabajo) {
-		CheckFinishedTrabajo checkFinishedTrabajoT = new CheckFinishedTrabajo(this.listaGateways, recordTrabajo, this.tries, this.log);
+		CheckFinishedTrabajo checkFinishedTrabajoT = new CheckFinishedTrabajo(this.listaGateways, this.listaTrabajos, recordTrabajo, this.tries, this.log);
 		Thread threadListaT = new Thread(checkFinishedTrabajoT);
 		threadListaT.start();
 	}
