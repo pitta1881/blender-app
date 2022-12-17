@@ -143,6 +143,7 @@ public class Worker {
 	}
 
 	private void startRender(RTrabajoParte recordTrabajoParte, String thisWorkRenderDir, File blendFile) {
+		long startTime = System.currentTimeMillis();
 		//Formato: blender -b file_name.blend -f 1 //blender -b file_name.blend -s 1 -e 100 -a
 		log.info("Pre-configurando el archivo .blend");
 		String cmd;
@@ -162,7 +163,7 @@ public class Worker {
 			System.out.println("CMD: " + f1.getAbsolutePath());
 			workerThreads.add(new WorkerProcessThread(latch, f1.getAbsolutePath(), this.log));
 		} else {
-			if(totalFrames >= 300){
+			if(totalFrames >= 200){
 				threadsNedeed = 8;
 			} else if (totalFrames >= 100) {
 				threadsNedeed = 4;
@@ -205,6 +206,8 @@ public class Worker {
 		} catch (ZipException e) {
 			log.error("Error: " + e.getMessage());
 		}
+		long endTime = System.currentTimeMillis()-startTime;
+		log.info("Render All Threads Time Elapsed: " + endTime + "ms");
 		try {
 			File zipRenderedImages = new File(thisWorkRenderDir + recordTrabajoParte.rTrabajo().gStorageBlendName()+".zip");
 			byte[] zipWithRenderedImages = Files.readAllBytes(zipRenderedImages.toPath());

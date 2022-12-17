@@ -4,6 +4,6 @@
   			 "initialPortForWorkers":"9251"
   		},
 	"tools": {
-		"frameDivision": "100"
+		"frameDivision": "300"
 	}
 }

@@ -18,13 +18,13 @@ public class WorkerProcessThread implements Runnable{
 		this.cmd = cmd;
 		this.log = log;
 	}
+	public WorkerProcessThread(CountDownLatch latch, String cmd) {
+		this.latchSignal = latch;
+		this.cmd = cmd;
+	}
 	
 	@Override
 	public void run() {
-		ejecutar(this.cmd);
-	}
-
-	private void ejecutar(String cmd) {
 		try {
 			long startTime = System.currentTimeMillis();
 			Process p = Runtime.getRuntime().exec(cmd);
@@ -44,9 +44,8 @@ public class WorkerProcessThread implements Runnable{
 			System.out.println("Time Elapsed: " + endTime + "ms");
 			this.latchSignal.countDown();
 		} catch (IOException | InterruptedException e) {
-			log.error("Error: " + e.getMessage());
+			if(this.log != null) log.error("Error: " + e.getMessage());
 		}
 	}
-
 
 }
