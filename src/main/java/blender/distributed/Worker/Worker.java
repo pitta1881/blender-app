@@ -164,9 +164,7 @@ public class Worker {
 			System.out.println("CMD: " + f1.getAbsolutePath());
 			workerThreads.add(new WorkerProcessThread(latch, f1.getAbsolutePath(), this.log));
 		} else {
-			if(totalFrames >= 200){
-				threadsNedeed = 8;
-			} else if (totalFrames >= 100) {
+			if (totalFrames >= 100) {
 				threadsNedeed = 4;
 			} else if (totalFrames >= 50) {
 				threadsNedeed = 2;

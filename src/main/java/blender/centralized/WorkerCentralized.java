@@ -2,6 +2,8 @@ package blender.centralized;
 
 import blender.distributed.SharedTools.DirectoryTools;
 import blender.distributed.Worker.Threads.WorkerProcessThread;
+import net.lingala.zip4j.ZipFile;
+import net.lingala.zip4j.exception.ZipException;
 
 import java.io.File;
 import java.util.ArrayList;
@@ -79,7 +81,14 @@ public class WorkerCentralized {
         } catch (InterruptedException e) {
             System.out.println("Error: " + e.getMessage());
         }
+        long startTimeZip = System.currentTimeMillis();
+        try {
+            new ZipFile(thisWorkRenderDir + this.blendName+".zip").addFolder(new File(thisWorkRenderDir.getAbsolutePath()));
+        } catch (ZipException e) {
+        }
+        long endTimeZip = System.currentTimeMillis()-startTimeZip;
         long endTime = System.currentTimeMillis()-startTime;
+        System.out.println("Zip elapsed time: " + endTimeZip + "ms");
         System.out.println("Render All Threads Time Elapsed: " + endTime + "ms");
         System.out.println("==========Trabajo Terminado=========");
     }
