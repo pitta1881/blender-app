@@ -1,7 +1,5 @@
 {
 	"rmi": {
-		"initialPortForClientes":"9101",
-		"initialPortForWorkers":"9201",
-		"initialPortForServidores":"9301"
+		"initialPortRmi":"9101"
 	}
 }

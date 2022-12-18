@@ -1,9 +1,12 @@
 package blender.distributed.Cliente.Threads;
 
 import blender.distributed.Cliente.view.GUIFinishedWork;
+import blender.distributed.Enums.EServicio;
 import blender.distributed.Enums.EStatus;
 import blender.distributed.Records.RGateway;
 import blender.distributed.Records.RTrabajo;
+import blender.distributed.Servidor.Cliente.IClienteAction;
+import blender.distributed.SharedTools.Tools;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
 import org.slf4j.Logger;
@@ -14,8 +17,6 @@ import java.time.Duration;
 import java.time.LocalTime;
 import java.util.List;
 import java.util.stream.IntStream;
-
-import static blender.distributed.Cliente.Tools.connectRandomGatewayRMI;
 
 public class CheckFinishedTrabajo implements Runnable{
     Logger log;
@@ -45,7 +46,7 @@ public class CheckFinishedTrabajo implements Runnable{
         RTrabajo recordTrabajo = null;
         while (!salir) {
             try {
-                recordTrabajoJson = connectRandomGatewayRMI(this.listaGateways, this.tries, this.log).getTrabajo(this.recordTrabajo.uuid());
+                recordTrabajoJson = Tools.<IClienteAction>connectRandomGatewayRMI(this.listaGateways, EServicio.CLIENTE_ACTION, this.tries, this.log).getTrabajo(this.recordTrabajo.uuid());
                 recordTrabajo = gson.fromJson(recordTrabajoJson, RTrabajoType);
                 synchronized (this.listaTrabajos) {
                     RTrabajo finalRecordTrabajo = recordTrabajo;

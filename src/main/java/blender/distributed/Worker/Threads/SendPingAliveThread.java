@@ -1,13 +1,13 @@
 package blender.distributed.Worker.Threads;
 
+import blender.distributed.Enums.EServicio;
 import blender.distributed.Records.RGateway;
+import blender.distributed.Servidor.Worker.IWorkerAction;
+import blender.distributed.SharedTools.Tools;
 import org.slf4j.Logger;
-
 
 import java.rmi.RemoteException;
 import java.util.List;
-
-import static blender.distributed.Worker.Tools.connectRandomGatewayRMI;
 
 public class SendPingAliveThread implements Runnable{
 	Logger log;
@@ -25,7 +25,7 @@ public class SendPingAliveThread implements Runnable{
 		while(true) {
 			try {
 				Thread.sleep(5000);
-				connectRandomGatewayRMI(this.listaGateways, this.log).pingAlive(this.workerName);
+				Tools.<IWorkerAction>connectRandomGatewayRMI(this.listaGateways, EServicio.WORKER_ACTION, -1, this.log).pingAlive(this.workerName);
 			} catch (RemoteException | InterruptedException e) {
 				log.error("Error: " + e.getMessage());
 			}

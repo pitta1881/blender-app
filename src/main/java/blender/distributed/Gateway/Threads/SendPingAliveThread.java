@@ -16,17 +16,13 @@ public class SendPingAliveThread implements Runnable {
     RedisClient redisPubClient;
     String uuid;
     String myPublicIp;
-    int rmiPortForClientes;
-    int rmiPortForWorkers;
-    int rmiPortForServidores;
+    int rmiPort;
 
-    public SendPingAliveThread(RedisClient redisPubClient, String uuid, String myPublicIp, int rmiPortForClientes, int rmiPortForWorkers, int rmiPortForServidores, Logger log) {
+    public SendPingAliveThread(RedisClient redisPubClient, String uuid, String myPublicIp, int rmiPort, Logger log) {
         this.redisPubClient = redisPubClient;
         this.uuid = uuid;
         this.myPublicIp = myPublicIp;
-        this.rmiPortForClientes = rmiPortForClientes;
-        this.rmiPortForWorkers = rmiPortForWorkers;
-        this.rmiPortForServidores = rmiPortForServidores;
+        this.rmiPort = rmiPort;
         this.log = log;
     }
 
@@ -38,7 +34,7 @@ public class SendPingAliveThread implements Runnable {
         while(true) {
             try {
                 Thread.sleep(5000);
-                RGateway recordGateway = new RGateway(this.uuid, this.myPublicIp, this.rmiPortForClientes, this.rmiPortForWorkers, this.rmiPortForServidores, ZonedDateTime.now().toInstant().toEpochMilli());
+                RGateway recordGateway = new RGateway(this.uuid, this.myPublicIp, this.rmiPort, ZonedDateTime.now().toInstant().toEpochMilli());
                 String json = gson.toJson(recordGateway);
                 commands.hset("listaGateways", this.uuid ,json);
                 //log.info("Redis Pub.: hset listaGateways " + this.uuid + " " + recordGateway); // too much flood

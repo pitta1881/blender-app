@@ -4,10 +4,10 @@ import java.rmi.Remote;
 import java.rmi.RemoteException;
 import java.util.List;
 
-public interface IGatewayServidorAction extends Remote{
-	String helloGatewayFromServidor(String publicIp, int rmiPortForClientes, int rmiPortForWorkers) throws RemoteException;
+public interface IServidorAction extends Remote{
+	String helloGatewayFromServidor(String publicIp, int rmiPort) throws RemoteException;
 	void helloServerFromWorker(String workerName, String recordWorkerJson) throws RemoteException;
-	void pingAliveFromServidor(String uuidServidor, String publicIp, int rmiPortForClientes, int rmiPortForWorkers) throws RemoteException;
+	void pingAliveFromServidor(String uuidServidor, String publicIp, int rmiPort) throws RemoteException;
 	String getWorker(String workerName) throws RemoteException;
 	void setWorker(String workerName, String recordWorkerJson) throws RemoteException;
 	String getTrabajo(String uuidTrabajo) throws RemoteException;

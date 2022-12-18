@@ -1,9 +1,12 @@
 package blender.distributed.Worker;
 
+import blender.distributed.Enums.EServicio;
 import blender.distributed.Records.RGateway;
 import blender.distributed.Records.RTrabajoParte;
+import blender.distributed.Servidor.Worker.IWorkerAction;
 import blender.distributed.SharedTools.DirectoryTools;
 import blender.distributed.SharedTools.RefreshListaGatewaysThread;
+import blender.distributed.SharedTools.Tools;
 import blender.distributed.Worker.Threads.SendPingAliveThread;
 import blender.distributed.Worker.Threads.WorkerProcessThread;
 import com.google.gson.Gson;
@@ -36,9 +39,6 @@ import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
-
-import static blender.distributed.Worker.Tools.connectRandomGatewayRMI;
-
 
 public class Worker {
 	//General
@@ -79,8 +79,9 @@ public class Worker {
 
 	private void helloServer() {
 		try {
-			connectRandomGatewayRMI(this.listaGateways, this.log).helloServer(this.workerName);
-		} catch (RemoteException e) {
+			Thread.sleep(1000);
+			Tools.<IWorkerAction>connectRandomGatewayRMI(this.listaGateways, EServicio.WORKER_ACTION, -1, this.log).helloServer(this.workerName);
+		} catch (RemoteException | InterruptedException e) {
 			log.error("Error: " + e.getMessage());
 			helloServer();
 		}
@@ -103,7 +104,7 @@ public class Worker {
 			RTrabajoParte recordTrabajoParte = null;
 			while (recordTrabajoParteJson == null){
 				try {
-					recordTrabajoParteJson = connectRandomGatewayRMI(this.listaGateways, this.log).getWorkToDo(this.workerName);
+					recordTrabajoParteJson = Tools.<IWorkerAction>connectRandomGatewayRMI(this.listaGateways, EServicio.WORKER_ACTION, -1, this.log).getWorkToDo(this.workerName);
 					if(recordTrabajoParteJson == null) {
 						Thread.sleep(1000);
 					}
@@ -111,18 +112,18 @@ public class Worker {
 					log.error("Error: " + e.getMessage());
 				}
 			}
+			log.info("==========Trabajo Iniciado=========");
 			recordTrabajoParte = gson.fromJson(recordTrabajoParteJson, RTrabajoParteType);
+			log.info("Recibi un nuevo trabajo: " + recordTrabajoParte.rParte().uuid());
 			File thisWorkDir = new File(this.singleWorkerDir + this.worksDir + recordTrabajoParte.rParte().uuid());
 			DirectoryTools.checkOrCreateFolder(thisWorkDir.getAbsolutePath(), this.log);
 			File thisWorkRenderDir = new File(thisWorkDir + this.rendersDir);
 			DirectoryTools.checkOrCreateFolder(thisWorkRenderDir.getAbsolutePath(), this.log);
 			File thisWorkBlendDir = new File(thisWorkDir + this.blendDir);
 			DirectoryTools.checkOrCreateFolder(thisWorkBlendDir.getAbsolutePath(), this.log);
-			log.info("==========Trabajo Iniciado=========");
-			log.info("Recibi un nuevo trabajo: " + recordTrabajoParte.rParte().uuid());
 			byte[] blendFileBytes = new byte[0];
 			try {
-				blendFileBytes = connectRandomGatewayRMI(this.listaGateways, this.log).getBlendFile(recordTrabajoParte.rTrabajo().gStorageBlendName());
+				blendFileBytes = Tools.<IWorkerAction>connectRandomGatewayRMI(this.listaGateways, EServicio.WORKER_ACTION, -1, this.log).getBlendFile(recordTrabajoParte.rTrabajo().gStorageBlendName());
 			} catch (RemoteException e) {
 				log.error("Error: " + e.getMessage());
 			}
@@ -214,7 +215,7 @@ public class Worker {
 			boolean zipSent = false;
 			while(!zipSent) {
 				try {
-					connectRandomGatewayRMI(this.listaGateways, this.log).setParteDone(this.workerName, recordTrabajoParte.rParte().uuid(), zipWithRenderedImages);
+					Tools.<IWorkerAction>connectRandomGatewayRMI(this.listaGateways, EServicio.WORKER_ACTION, -1, this.log).setParteDone(this.workerName, recordTrabajoParte.rParte().uuid(), zipWithRenderedImages);
 					zipSent = true;
 				} catch (IOException e) {
 					log.error("Conexión perdida con el Servidor.");

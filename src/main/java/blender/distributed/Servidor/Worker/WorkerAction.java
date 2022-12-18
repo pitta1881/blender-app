@@ -1,8 +1,11 @@
 package blender.distributed.Servidor.Worker;
 
+import blender.distributed.Enums.EServicio;
 import blender.distributed.Enums.EStatus;
+import blender.distributed.Gateway.Servidor.IServidorAction;
 import blender.distributed.Records.*;
 import blender.distributed.SharedTools.DirectoryTools;
+import blender.distributed.SharedTools.Tools;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
 import net.lingala.zip4j.ZipFile;
@@ -19,8 +22,6 @@ import java.time.LocalDateTime;
 import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.List;
-
-import static blender.distributed.Servidor.Tools.connectRandomGatewayRMIForServidor;
 
 public class WorkerAction implements IWorkerAction{
 	Logger log;
@@ -39,14 +40,14 @@ public class WorkerAction implements IWorkerAction{
 	@Override
 	public void helloServer(String workerName) throws RemoteException {
 		RWorker workerRecord = new RWorker(workerName, null, ZonedDateTime.now().toInstant().toEpochMilli());
-		connectRandomGatewayRMIForServidor(this.listaGateways, this.log).helloServerFromWorker(workerName, gson.toJson(workerRecord));
+		Tools.<IServidorAction>connectRandomGatewayRMI(this.listaGateways, EServicio.SERVIDOR_ACTION, -1, this.log).helloServerFromWorker(workerName, gson.toJson(workerRecord));
 		log.info("Registrando nuevo worker: " + workerName);
 	}
 
 	@Override
 	public void pingAlive(String workerName) {
 		try {
-			String stringRecordWorker = connectRandomGatewayRMIForServidor(this.listaGateways, this.log).getWorker(workerName);
+			String stringRecordWorker = Tools.<IServidorAction>connectRandomGatewayRMI(this.listaGateways, EServicio.SERVIDOR_ACTION, -1, this.log).getWorker(workerName);
 			RWorker workerRecord = gson.fromJson(stringRecordWorker, RWorkerType);
 			if (workerRecord == null) {
 				log.info("Registrando nuevo worker: " + workerName);
@@ -54,7 +55,7 @@ public class WorkerAction implements IWorkerAction{
 			} else {
 				workerRecord = new RWorker(workerName, workerRecord.uuidParte(), ZonedDateTime.now().toInstant().toEpochMilli());
 			}
-			connectRandomGatewayRMIForServidor(this.listaGateways, this.log).setWorker(workerName, gson.toJson(workerRecord));
+			Tools.<IServidorAction>connectRandomGatewayRMI(this.listaGateways, EServicio.SERVIDOR_ACTION, -1, this.log).setWorker(workerName, gson.toJson(workerRecord));
 		} catch (RemoteException | NullPointerException e) {
 			pingAlive(workerName);
 		}
@@ -64,7 +65,7 @@ public class WorkerAction implements IWorkerAction{
 	@Override
 	public String getWorkToDo(String workerName) {
 		try {
-			List<String> listaPartesJson = connectRandomGatewayRMIForServidor(this.listaGateways, this.log).getAllPartes();
+			List<String> listaPartesJson = Tools.<IServidorAction>connectRandomGatewayRMI(this.listaGateways, EServicio.SERVIDOR_ACTION, -1, this.log).getAllPartes();
 			if (listaPartesJson.size() == 0) {
 				return null;
 			}
@@ -77,11 +78,11 @@ public class WorkerAction implements IWorkerAction{
 				return null;
 			}
 			RParte recordParteUpdated = new RParte(recordParte.uuidTrabajo(), recordParte.uuid(),recordParte.startFrame(), recordParte.endFrame(), EStatus.IN_PROGRESS, null);
-			connectRandomGatewayRMIForServidor(this.listaGateways, this.log).setParte(recordParte.uuid(), gson.toJson(recordParteUpdated));
+			Tools.<IServidorAction>connectRandomGatewayRMI(this.listaGateways, EServicio.SERVIDOR_ACTION, -1, this.log).setParte(recordParte.uuid(), gson.toJson(recordParteUpdated));
 			RWorker recordWorkerUpdated = new RWorker(workerName, recordParte.uuid(), ZonedDateTime.now().toInstant().toEpochMilli());
-			connectRandomGatewayRMIForServidor(this.listaGateways, this.log).setWorker(workerName, gson.toJson(recordWorkerUpdated));
+			Tools.<IServidorAction>connectRandomGatewayRMI(this.listaGateways, EServicio.SERVIDOR_ACTION, -1, this.log).setWorker(workerName, gson.toJson(recordWorkerUpdated));
 
-			String recordTrabajoJson = connectRandomGatewayRMIForServidor(this.listaGateways, this.log).getTrabajo(recordParte.uuidTrabajo());
+			String recordTrabajoJson = Tools.<IServidorAction>connectRandomGatewayRMI(this.listaGateways, EServicio.SERVIDOR_ACTION, -1, this.log).getTrabajo(recordParte.uuidTrabajo());
 			RTrabajo recordTrabajo = gson.fromJson(recordTrabajoJson, RTrabajoType);
 			return gson.toJson(new RTrabajoParte(recordTrabajo, recordParteUpdated));
 		} catch (RemoteException | NullPointerException e) {
@@ -92,20 +93,20 @@ public class WorkerAction implements IWorkerAction{
 	@Override
 	public void setParteDone(String workerName, String uuidParte, byte[] zipParteWithRenderedImages) {
 		try {
-			connectRandomGatewayRMIForServidor(this.listaGateways, this.log).setWorker(workerName, gson.toJson(new RWorker(workerName, null, ZonedDateTime.now().toInstant().toEpochMilli())));
-			String recordParteJson = connectRandomGatewayRMIForServidor(this.listaGateways, this.log).getParte(uuidParte);
+			Tools.<IServidorAction>connectRandomGatewayRMI(this.listaGateways, EServicio.SERVIDOR_ACTION, -1, this.log).setWorker(workerName, gson.toJson(new RWorker(workerName, null, ZonedDateTime.now().toInstant().toEpochMilli())));
+			String recordParteJson = Tools.<IServidorAction>connectRandomGatewayRMI(this.listaGateways, EServicio.SERVIDOR_ACTION, -1, this.log).getParte(uuidParte);
 			RParte recordParte = gson.fromJson(recordParteJson, RParteType);
 			if (recordParte != null) {
-				connectRandomGatewayRMIForServidor(this.listaGateways, this.log).storePartZipFile(uuidParte+".zip", zipParteWithRenderedImages);
+				Tools.<IServidorAction>connectRandomGatewayRMI(this.listaGateways, EServicio.SERVIDOR_ACTION, -1, this.log).storePartZipFile(uuidParte+".zip", zipParteWithRenderedImages);
 				RParte recordParteUpdated = new RParte(recordParte.uuidTrabajo(), recordParte.uuid(),recordParte.startFrame(), recordParte.endFrame(), EStatus.DONE, uuidParte+".zip");
-				connectRandomGatewayRMIForServidor(this.listaGateways, this.log).setParte(recordParte.uuid(), gson.toJson(recordParteUpdated));
+				Tools.<IServidorAction>connectRandomGatewayRMI(this.listaGateways, EServicio.SERVIDOR_ACTION, -1, this.log).setParte(recordParte.uuid(), gson.toJson(recordParteUpdated));
 
-				String recordTrabajoJson = connectRandomGatewayRMIForServidor(this.listaGateways, this.log).getTrabajo(recordParte.uuidTrabajo());
+				String recordTrabajoJson = Tools.<IServidorAction>connectRandomGatewayRMI(this.listaGateways, EServicio.SERVIDOR_ACTION, -1, this.log).getTrabajo(recordParte.uuidTrabajo());
 				RTrabajo recordTrabajo = gson.fromJson(recordTrabajoJson, RTrabajoType);
 				boolean trabajoTerminado = true;
 				int i = 0;
 				while (trabajoTerminado && i < recordTrabajo.listaPartes().size()){
-					String parteTempJson = connectRandomGatewayRMIForServidor(this.listaGateways, this.log).getParte(recordTrabajo.listaPartes().get(i));
+					String parteTempJson = Tools.<IServidorAction>connectRandomGatewayRMI(this.listaGateways, EServicio.SERVIDOR_ACTION, -1, this.log).getParte(recordTrabajo.listaPartes().get(i));
 					RParte parteTemp = gson.fromJson(parteTempJson, RParteType);
 					if(parteTemp.estado() == EStatus.TO_DO || parteTemp.estado() == EStatus.IN_PROGRESS) {
 						trabajoTerminado = false;
@@ -126,7 +127,7 @@ public class WorkerAction implements IWorkerAction{
 							String zipPartPath = thisWorkDir + recordTrabajo.uuid() + "__part__" + parte + ".zip";
 							File zipPartFile = new File(zipPartPath);
 							try (FileOutputStream fos = new FileOutputStream(zipPartFile)) {
-								byte[] bytesZipParte = connectRandomGatewayRMIForServidor(this.listaGateways, this.log).getPartZipFile(parte + ".zip");
+								byte[] bytesZipParte = Tools.<IServidorAction>connectRandomGatewayRMI(this.listaGateways, EServicio.SERVIDOR_ACTION, -1, this.log).getPartZipFile(parte + ".zip");
 								fos.write(bytesZipParte);
 								new ZipFile(zipPartPath).extractAll(thisWorkDir + "/RenderedFiles/");
 							} catch (Exception e) {
@@ -142,14 +143,14 @@ public class WorkerAction implements IWorkerAction{
 							log.error("Error: " + e.getMessage());
 						}
 					}
-					connectRandomGatewayRMIForServidor(this.listaGateways, this.log).storeFinalZipFile(recordTrabajo.uuid()+".zip", zipTrabajoWithRenderedImages);
+					Tools.<IServidorAction>connectRandomGatewayRMI(this.listaGateways, EServicio.SERVIDOR_ACTION, -1, this.log).storeFinalZipFile(recordTrabajo.uuid()+".zip", zipTrabajoWithRenderedImages);
 					RTrabajo recordTrabajoUpdated = new RTrabajo(recordTrabajo.uuid(), recordTrabajo.blendName(), recordTrabajo.startFrame(), recordTrabajo.endFrame(), EStatus.DONE, recordTrabajo.listaPartes(), recordTrabajo.gStorageBlendName(), recordTrabajo.uuid()+".zip", recordTrabajo.createdAt(), LocalDateTime.now().toString());
-					connectRandomGatewayRMIForServidor(this.listaGateways, this.log).setTrabajo(recordTrabajoUpdated.uuid(), gson.toJson(recordTrabajoUpdated));
-					connectRandomGatewayRMIForServidor(this.listaGateways, this.log).deleteBlendFile(recordTrabajoUpdated.gStorageBlendName());
+					Tools.<IServidorAction>connectRandomGatewayRMI(this.listaGateways, EServicio.SERVIDOR_ACTION, -1, this.log).setTrabajo(recordTrabajoUpdated.uuid(), gson.toJson(recordTrabajoUpdated));
+					Tools.<IServidorAction>connectRandomGatewayRMI(this.listaGateways, EServicio.SERVIDOR_ACTION, -1, this.log).deleteBlendFile(recordTrabajoUpdated.gStorageBlendName());
 					recordTrabajoUpdated.listaPartes().forEach(parte -> {
 						try {
-							connectRandomGatewayRMIForServidor(this.listaGateways, this.log).deletePartZipFile(parte+".zip");
-							connectRandomGatewayRMIForServidor(this.listaGateways, this.log).delParte(parte);
+							Tools.<IServidorAction>connectRandomGatewayRMI(this.listaGateways, EServicio.SERVIDOR_ACTION, -1, this.log).deletePartZipFile(parte+".zip");
+							Tools.<IServidorAction>connectRandomGatewayRMI(this.listaGateways, EServicio.SERVIDOR_ACTION, -1, this.log).delParte(parte);
 						} catch (RemoteException e) {
 							log.error("Error: " + e.getMessage());
 						}
@@ -167,7 +168,7 @@ public class WorkerAction implements IWorkerAction{
 	@Override
 	public byte[] getBlendFile(String gStorageBlendName) {
 		try {
-			return connectRandomGatewayRMIForServidor(this.listaGateways, this.log).getBlendFile(gStorageBlendName);
+			return Tools.<IServidorAction>connectRandomGatewayRMI(this.listaGateways, EServicio.SERVIDOR_ACTION, -1, this.log).getBlendFile(gStorageBlendName);
 		} catch (RemoteException e) {
 			return getBlendFile(gStorageBlendName);
 		}

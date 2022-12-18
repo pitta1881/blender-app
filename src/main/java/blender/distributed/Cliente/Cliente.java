@@ -1,9 +1,12 @@
 package blender.distributed.Cliente;
 
 import blender.distributed.Cliente.Threads.CheckFinishedTrabajo;
+import blender.distributed.Enums.EServicio;
 import blender.distributed.Records.RGateway;
 import blender.distributed.Records.RTrabajo;
+import blender.distributed.Servidor.Cliente.IClienteAction;
 import blender.distributed.SharedTools.RefreshListaGatewaysThread;
+import blender.distributed.SharedTools.Tools;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
 import io.github.cdimascio.dotenv.Dotenv;
@@ -21,8 +24,6 @@ import java.lang.reflect.Type;
 import java.nio.file.Files;
 import java.rmi.RemoteException;
 import java.util.List;
-
-import static blender.distributed.Cliente.Tools.connectRandomGatewayRMI;
 
 public class Cliente{
 	private static final Logger log = LoggerFactory.getLogger(Cliente.class);
@@ -70,7 +71,7 @@ public class Cliente{
 		if(this.file != null) {
 			log.info("Enviando el archivo: "+this.file.getName());
 			try {
-				String recordTrabajoJson = connectRandomGatewayRMI(this.listaGateways, this.tries, this.log).renderRequest(this.fileContent, file.getName(), startFrame, endFrame);
+				String recordTrabajoJson = Tools.<IClienteAction>connectRandomGatewayRMI(this.listaGateways, EServicio.CLIENTE_ACTION, this.tries, this.log).renderRequest(this.fileContent, file.getName(), startFrame, endFrame);
 				RTrabajo recordTrabajo = new Gson().fromJson(recordTrabajoJson, RTrabajoType);
 				synchronized (this.listaTrabajos){
 					this.listaTrabajos.add(recordTrabajo);

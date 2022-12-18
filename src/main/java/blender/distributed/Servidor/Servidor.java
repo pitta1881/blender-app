@@ -1,5 +1,7 @@
 package blender.distributed.Servidor;
 
+import blender.distributed.Enums.EServicio;
+import blender.distributed.Gateway.Servidor.IServidorAction;
 import blender.distributed.Records.RGateway;
 import blender.distributed.Servidor.Cliente.ClienteAction;
 import blender.distributed.Servidor.Cliente.IClienteAction;
@@ -8,6 +10,7 @@ import blender.distributed.Servidor.Worker.IWorkerAction;
 import blender.distributed.Servidor.Worker.WorkerAction;
 import blender.distributed.SharedTools.DirectoryTools;
 import blender.distributed.SharedTools.RefreshListaGatewaysThread;
+import blender.distributed.SharedTools.Tools;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
 import io.github.cdimascio.dotenv.Dotenv;
@@ -29,7 +32,6 @@ import java.rmi.server.UnicastRemoteObject;
 import java.util.List;
 import java.util.Map;
 
-import static blender.distributed.Servidor.Tools.connectRandomGatewayRMIForServidor;
 import static blender.distributed.SharedTools.Tools.getPublicIp;
 
 public class Servidor {
@@ -41,10 +43,8 @@ public class Servidor {
 	private String myPublicIp = getPublicIp(this.log);
 
 	//RMI
-	private int rmiPortForClientes;
-	private int rmiPortForWorkers;
-	static Registry registryCli;
-	static Registry registrySv;
+	private int rmiPort;
+	private static Registry registry;
 	private static IClienteAction remoteCliente;
 	private static IWorkerAction remoteWorker;
 
@@ -59,14 +59,14 @@ public class Servidor {
 	public Servidor() {
 		readConfigFile();
 		runRedisPubClient();
-		runRMIServer(this.rmiPortForClientes, this.rmiPortForWorkers);
+		runRMIServer(this.rmiPort);
 		createThreadRefreshListaGateways();
 		helloGateway();
 		createThreadSendPingAlive();
 	}
 
 	private void createThreadSendPingAlive() {
-		SendPingAliveThread aliveT = new SendPingAliveThread(this.uuid, this.myPublicIp, this.listaGateways, this.rmiPortForClientes, this.rmiPortForWorkers, this.log);
+		SendPingAliveThread aliveT = new SendPingAliveThread(this.uuid, this.myPublicIp, this.listaGateways, this.rmiPort, this.log);
 		Thread threadAliveT = new Thread(aliveT);
 		threadAliveT.start();
 	}
@@ -76,29 +76,31 @@ public class Servidor {
 		threadAliveT.start();
 	}
 
-	private void runRMIServer(int rmiPortForClientes, int rmiPortForWorkers) {
+	private void runRMIServer(int rmiPort) {
 		try {
 			System.setProperty("sun.security.ssl.allowUnsafeRenegotiation", "true"); // renegotiation process is disabled by default.. Without this can't run two clients rmi on same machine like worker and client.
 			System.setProperty("java.rmi.server.hostname", this.myPublicIp);
-			createSingleServerDir(rmiPortForWorkers);
-			log.info("Levantando servidor RMI en puertos " + rmiPortForClientes + "(Clientes) y " + rmiPortForWorkers + "(Workers)");
-			registryCli = LocateRegistry.createRegistry(rmiPortForClientes);
-			registrySv = LocateRegistry.createRegistry(rmiPortForWorkers);
+			createSingleServerDir(rmiPort);
+			log.info("Levantando servidor RMI en puerto " + rmiPort);
 
-			remoteCliente = (IClienteAction) UnicastRemoteObject.exportObject(new ClienteAction(this.listaGateways, this.frameDivision, this.log),rmiPortForClientes);
-			remoteWorker = (IWorkerAction) UnicastRemoteObject.exportObject(new WorkerAction(this.listaGateways, this.singleServerDir, this.log),rmiPortForWorkers);
+			registry = LocateRegistry.createRegistry(rmiPort);
 
-			registryCli.rebind("clienteAction", remoteCliente);
-			registrySv.rebind("workerAction", remoteWorker);
+			ClienteAction clienteAction = new ClienteAction(this.listaGateways, this.frameDivision, this.log);
+			WorkerAction workerAction = new WorkerAction(this.listaGateways, this.singleServerDir, this.log);
 
-			log.info("Servidor RMI:");
-			log.info("\t -> Para Clientes: " + registryCli.toString());
-			log.info("\t -> Para Workers: " + registrySv.toString());
-			this.rmiPortForClientes = rmiPortForClientes;
-			this.rmiPortForWorkers = rmiPortForWorkers;
+			remoteCliente = (IClienteAction) UnicastRemoteObject.exportObject(clienteAction, rmiPort);
+			remoteWorker = (IWorkerAction) UnicastRemoteObject.exportObject(workerAction, rmiPort);
+
+			registry.rebind(EServicio.CLIENTE_ACTION.name(), remoteCliente);
+			registry.rebind(EServicio.WORKER_ACTION.name(), remoteWorker);
+
+			log.info("Servidor RMI " + registry.toString());
+			log.info("\t -> Para Clientes: " + EServicio.CLIENTE_ACTION.name());
+			log.info("\t -> Para Workers: " + EServicio.WORKER_ACTION.name());
+			this.rmiPort = rmiPort;
 		} catch (RemoteException e) {
-			log.error("Error: Puertos " + rmiPortForClientes + "(Clientes) y " + rmiPortForWorkers + "(Workers) en uso.");
-			runRMIServer(++rmiPortForClientes, ++rmiPortForWorkers);
+			log.error("Error: Puerto " + rmiPort + " en uso.");
+			runRMIServer(++rmiPort);
 		}
 	}
 
@@ -110,8 +112,7 @@ public class Servidor {
 			config = gson.fromJson(IOUtils.toString(stream, "UTF-8"), Map.class);
 
 			Map rmi = (Map) config.get("rmi");
-			this.rmiPortForClientes = Integer.valueOf(rmi.get("initialPortForClientes").toString());
-			this.rmiPortForWorkers = Integer.valueOf(rmi.get("initialPortForWorkers").toString());
+			this.rmiPort = Integer.valueOf(rmi.get("initialPortRmi").toString());
 
 			Map tools = (Map) config.get("tools");
 			this.frameDivision = Integer.valueOf(tools.get("frameDivision").toString());
@@ -123,8 +124,8 @@ public class Servidor {
 		}
 	}
 
-	private void createSingleServerDir(int portWorkerUsed){
-		int serverNumber = portWorkerUsed - 9250;
+	private void createSingleServerDir(int rmiPort){
+		int serverNumber = rmiPort - 9150;
 		File appDir = new File(this.appDir);
 		File serverDir = new File(this.serverDirectory);
 		File singleServerFileDir = new File(this.serverDirectory + "/server9x5" + serverNumber);
@@ -146,7 +147,7 @@ public class Servidor {
 	private void helloGateway() {
 		try {
 			Thread.sleep(1000);
-			String uuid = connectRandomGatewayRMIForServidor(this.listaGateways, this.log).helloGatewayFromServidor(this.myPublicIp, this.rmiPortForClientes, this.rmiPortForWorkers);
+			String uuid = Tools.<IServidorAction>connectRandomGatewayRMI(this.listaGateways, EServicio.SERVIDOR_ACTION, -1, this.log).helloGatewayFromServidor(this.myPublicIp, this.rmiPort);
 			if(!uuid.isEmpty()){
 				log.info("Conectado a un Gateway. UUID Asignado: " + uuid);
 				this.uuid = uuid;

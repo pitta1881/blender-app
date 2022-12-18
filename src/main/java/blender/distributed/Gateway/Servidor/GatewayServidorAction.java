@@ -18,7 +18,7 @@ import static blender.distributed.Gateway.GStorage.DeleteObject.deleteObject;
 import static blender.distributed.Gateway.GStorage.DownloadObjectIntoMemory.downloadObjectIntoMemory;
 import static blender.distributed.Gateway.GStorage.UploadObjectFromMemory.uploadObjectFromMemory;
 
-public class GatewayServidorAction implements IGatewayServidorAction {
+public class GatewayServidorAction implements IServidorAction {
 	Logger log;
 	List<RServidor> listaServidores;
 	Gson gson = new Gson();
@@ -35,9 +35,9 @@ public class GatewayServidorAction implements IGatewayServidorAction {
 		this.log = log;
 	}
 	@Override
-	public String helloGatewayFromServidor(String publicIp, int rmiPortForClientes, int rmiPortForWorkers) {
+	public String helloGatewayFromServidor(String publicIp, int rmiPort) {
 		String uuid = UUID.randomUUID().toString();
-		RServidor recordServidor = new RServidor(uuid, publicIp, rmiPortForClientes, rmiPortForWorkers, ZonedDateTime.now().toInstant().toEpochMilli());
+		RServidor recordServidor = new RServidor(uuid, publicIp, rmiPort, ZonedDateTime.now().toInstant().toEpochMilli());
 		String json = gson.toJson(recordServidor);
 		redisConnection.sync().hset("listaServidores", uuid ,json);
 		log.info("Redis Priv.: hset listaServidores " + uuid + " " + json);
@@ -52,8 +52,8 @@ public class GatewayServidorAction implements IGatewayServidorAction {
 	}
 
 	@Override
-	public void pingAliveFromServidor(String uuidServidor, String publicIp, int rmiPortForClientes, int rmiPortForWorkers) {
-		RServidor recordServidor = new RServidor(uuidServidor, publicIp,rmiPortForClientes, rmiPortForWorkers, ZonedDateTime.now().toInstant().toEpochMilli());
+	public void pingAliveFromServidor(String uuidServidor, String publicIp, int rmiPort) {
+		RServidor recordServidor = new RServidor(uuidServidor, publicIp, rmiPort, ZonedDateTime.now().toInstant().toEpochMilli());
 		String json = gson.toJson(recordServidor);		
 		redisConnection.sync().hset("listaServidores", uuidServidor ,json);
 		//log.info("Redis Priv.: hset listaServidores " + uuidServidor + " " + recordServidor);	//too much flood

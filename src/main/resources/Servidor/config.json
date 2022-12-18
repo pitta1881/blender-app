@@ -1,7 +1,6 @@
 {
   "rmi": {
-  			 "initialPortForClientes":"9151",
-  			 "initialPortForWorkers":"9251"
+  			 "initialPortRmi":"9151"
   		},
 	"tools": {
 		"frameDivision": "300"
