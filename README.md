@@ -62,6 +62,7 @@ La propuesta consiste en crear una red distribuida de renderizado de imágenes a
 2. Run Servidor (Múltiples).
 3. Run Worker (Múltiples).
 4. Run Cliente (Múltiples).
+5. Run Clean-Gateway (Solo uno).
 
 ## Notas
 
